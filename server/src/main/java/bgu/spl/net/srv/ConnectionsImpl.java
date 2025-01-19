@@ -1,12 +1,7 @@
 package bgu.spl.net.srv;
 
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.List;
 import java.util.Set;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.concurrent.CopyOnWriteArraySet;
 
 public class ConnectionsImpl<T> implements Connections<T> {
     private ConcurrentHashMap<Integer, ConnectionHandler<T>> connectionsMap;
@@ -45,8 +40,8 @@ public class ConnectionsImpl<T> implements Connections<T> {
     @Override
     public void disconnect(int connectionId) {
         connectionsMap.remove(connectionId);
-        for (Set<Integer> subscribers : channelSubscribersMap.values()) {
-            subscribers.remove(connectionId);
+        for (String channel : channelSubscribersMap.keySet()) {
+            unsubscribe(channel, connectionId);
         }
     }
 
@@ -59,13 +54,16 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
     @Override
     public void unsubscribe(String channel, int connectionId) {
-        Set<Integer> subscribers = channelSubscribersMap.get(channel);
-        if (subscribers != null) {
-            subscribers.remove(connectionId);
-            if (subscribers.isEmpty()) {
-                channelSubscribersMap.remove(channel);
+        synchronized (channelSubscribersMap) {
+            Set<Integer> subscribers = channelSubscribersMap.get(channel);
+            if (subscribers != null) {
+                subscribers.remove(connectionId);
+                if (subscribers.isEmpty()) {
+                    channelSubscribersMap.remove(channel);
+                }
             }
         }
+
     }
 
     @Override    
