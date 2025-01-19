@@ -1,7 +1,6 @@
 package bgu.spl.net.srv;
 
 public class User {
-    public static int newConnectionId = 0;
     private int connectionId;
     private String loginUser;
     private String passcode;
@@ -39,14 +38,4 @@ public class User {
     public void disconnect() {
         isConnected = false;
     }
-
-    public static int getNewConnectionId() {
-        newConnectionId++;
-        return newConnectionId;
-    }
-
-
-
-
-
 }

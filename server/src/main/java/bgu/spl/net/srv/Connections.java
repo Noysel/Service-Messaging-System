@@ -16,4 +16,8 @@ public interface Connections<T> {
     User getUser(String username);
 
     void addUser(User user);
+
+    boolean isSubscribedToChannel(int connectionId, String channel);
+
+    void addConnection(int connectionId, ConnectionHandler<T> handler);
 }

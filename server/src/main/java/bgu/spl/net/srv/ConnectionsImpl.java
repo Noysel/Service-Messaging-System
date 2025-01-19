@@ -56,7 +56,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
                 .add(connectionId);
     }
 
-    
+    @Override
     public void unsubscribe(String channel, int connectionId) {
         Set<Integer> subscribers = channelSubscribersMap.get(channel);
         if (subscribers != null) {
@@ -67,14 +67,29 @@ public class ConnectionsImpl<T> implements Connections<T> {
         }
     }
 
+    @Override    
     public User getUser(String username) {
         return userMap.get(username);
 
     }
 
+    @Override
     public void addUser(User user){
         userMap.put(user.getLoginUser(), user);
         
+    }
+
+    @Override
+    public boolean isSubscribedToChannel (int connectionId, String channel) {
+        Set<Integer> subscribers = channelSubscribersMap.get(channel);
+        if (subscribers == null || !subscribers.contains(connectionId)) {
+            return false;
+        }
+        return true;
+    }
+
+    public void addConnection(int connectionId, ConnectionHandler<T> handler) {
+        connectionsMap.put(connectionId, handler);
     }
 
 }
