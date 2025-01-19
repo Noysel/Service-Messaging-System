@@ -68,7 +68,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
             connections.send(connectionId, "CONNECTED\nversion:1.2\n\n\0");
             return "CONNECTED\nversion:1.2\n\n\0";
         }
-        if (user.getPasscode() != passcode) {
+        if (!user.getPasscode().equals(passcode)) {
             return handleError("Wrong password");
         }
         if (user.isConnected()){

@@ -19,6 +19,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
     public ConnectionsImpl() {
         connectionsMap = new ConcurrentHashMap<>();
         channelSubscribersMap = new ConcurrentHashMap<>();
+        userMap = new ConcurrentHashMap<>();
     }
 
     @Override
