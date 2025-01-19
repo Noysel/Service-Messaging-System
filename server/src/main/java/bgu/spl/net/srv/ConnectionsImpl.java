@@ -63,7 +63,6 @@ public class ConnectionsImpl<T> implements Connections<T> {
                 }
             }
         }
-
     }
 
     @Override    
@@ -89,6 +88,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
     public void addConnection(int connectionId, ConnectionHandler<T> handler) {
         connectionsMap.put(connectionId, handler);
+        System.out.println("Connections added a new connection!");
     }
 
 }

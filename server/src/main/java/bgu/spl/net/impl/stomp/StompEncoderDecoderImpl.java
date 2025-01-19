@@ -12,7 +12,9 @@ public class StompEncoderDecoderImpl implements MessageEncoderDecoder<String> {
     public String decodeNextByte(byte nextByte) {
         //notice that the top 128 ascii characters have the same representation as their utf-8 counterparts
         //this allow us to do the following comparison
+        System.out.println("Received byte: " + nextByte + " (" + (char) nextByte + ")");
         if (nextByte == '\u0000') {
+            System.out.println("Delimiter detected! Completing message.");
             return popString();
         }
 
