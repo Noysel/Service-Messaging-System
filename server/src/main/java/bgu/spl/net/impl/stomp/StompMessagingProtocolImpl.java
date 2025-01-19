@@ -2,7 +2,6 @@ package bgu.spl.net.impl.stomp;
 
 import bgu.spl.net.api.StompMessagingProtocol;
 import bgu.spl.net.srv.Connections;
-import bgu.spl.net.srv.ConnectionsImpl;
 import bgu.spl.net.srv.User;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,34 +21,30 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
 
     @Override
     public String process(String message) {
+        System.out.println(message);
         String[] lines = message.split("\n");
         String msgType = lines[0];
 
         switch (msgType) {
             case "CONNECT":
-                handleConnect(lines);
-                break;
+                return handleConnect(lines);
 
             case "SEND":
-                handleSend(lines);
-                break;
+                return handleSend(lines);
 
             case "SUBSCRIBE":
-                handleSubscribe(lines);
-                break;
+                return handleSubscribe(lines);
 
             case "UNSUBSCRIBE":
-                handleUnsubscribe(lines);
-                break;
+                return handleUnsubscribe(lines);
 
             case "DISCONNECT":
-                handleDisconnect(lines);
-                break;
+                return handleDisconnect(lines);
+
             default:
-                handleError("Unknown command: " + msgType);
-                break;
+                return handleError("Unknown command: " + msgType);
+
         }
-        return null; //
     }
 
     @Override
@@ -58,10 +53,11 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
     }
 
     private String handleConnect(String[] lines) {
+        System.out.println("Handle Connect");
         String username = getHeaderVal(lines, "login");
         String passcode = getHeaderVal(lines, "passcode");
         User user = connections.getUser(username);
-        if (user == null){
+        if (user == null) {
             User newUser = new User(connectionId, username, passcode);
             connections.addUser(newUser);
             newUser.connect();
@@ -71,13 +67,13 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
         if (user.getPasscode().equals(passcode)) {
             return handleError("Wrong password");
         }
-        if (user.isConnected()){
+        if (user.isConnected()) {
             return handleError("Already logged in");
         }
         user.connect();
         connections.send(connectionId, "CONNECTED\nversion:1.2\n\n\0");
         return "CONNECTED\nversion:1.2\n\n\0";
-        
+
     }
 
     private String handleSubscribe(String[] lines) {
@@ -85,12 +81,12 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
         String subscriptionId = getHeaderVal(lines, "id");
         String receiptId = getHeaderVal(lines, "receipt");
         if (destination == null || subscriptionId == null) {
-            return handleError("Missing 'destination' or 'id' header in SUBSCRIBE"); 
+            return handleError("Missing 'destination' or 'id' header in SUBSCRIBE");
         }
         if (subscribersChannelsMap.containsKey(subscriptionId)) {
 
-                return handleError("Subscription ID '" + subscriptionId + "' is already subscribed to '" + destination);
-            }
+            return handleError("Subscription ID '" + subscriptionId + "' is already subscribed to '" + destination);
+        }
         subscribeToChannel(destination, subscriptionId);
         if (receiptId != null) {
             connections.send(connectionId, "RECEIPT\nreceipt-id:" + receiptId + "\n\n\0");
@@ -105,7 +101,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
         if (destination == null || body == null) {
             return handleError("Missing 'destination' or body in SEND");
         }
-        if (connections.isSubscribedToChannel(connectionId, destination)){
+        if (connections.isSubscribedToChannel(connectionId, destination)) {
             return handleError("User is not subscribed to channel");
         }
         String response = "MESSAGE\ndestination:" + destination + "\n\n" + body + "\0";
@@ -123,7 +119,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
         }
         String destination = subscribersChannelsMap.get(subscriptionId);
         if (destination == null) {
-           return handleError("User is not subscribed to channel");
+            return handleError("User is not subscribed to channel");
         }
         unsubscribeToChannel(destination, subscriptionId);
         if (receiptId != null) {
@@ -142,12 +138,12 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
     }
 
     private String handleError(String errorMessage) {
+        System.out.println("Handle Error");
         String response = "ERROR\nmessage: " + errorMessage + "\n\n\0";
         connections.send(connectionId, "ERROR\nmessage:" + errorMessage + "\n\n\0");
         shouldTerminate = true;
         return response;
     }
-
 
     // ***methods for handeling messages properly***
 

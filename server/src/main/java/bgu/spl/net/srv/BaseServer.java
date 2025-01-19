@@ -43,7 +43,7 @@ public abstract class BaseServer<T> implements Server<T> {
             while (!Thread.currentThread().isInterrupted()) {
 
                 Socket clientSock = serverSock.accept();
-                System.out.println("Clien accepted");
+                System.out.println("Client accepted");
                 int connectionId = connectionIdGen.getAndIncrement();
                 MessagingProtocol<T> protocol = protocolFactory.get();
                 protocol.start(connectionId, connections);
