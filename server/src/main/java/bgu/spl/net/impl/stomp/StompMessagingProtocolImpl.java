@@ -12,6 +12,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
     private boolean shouldTerminate = false;
     private ConcurrentHashMap<String, String> subscribersChannelsMap = new ConcurrentHashMap<>();
     // key is subscriptionID, value is channel
+    private User currentUser = null;
 
     @Override
     public void start(int connectionId, Connections<String> connections) {
@@ -62,16 +63,18 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
             User newUser = new User(connectionId, username, passcode);
             connections.addUser(newUser);
             newUser.connect();
+            currentUser = newUser;
             connections.send(connectionId, "CONNECTED\nversion:1.2\n\n\0");
             return "CONNECTED\nversion:1.2\n\n\0";
         }
-        if (user.getPasscode().equals(passcode)) {
+        if (!user.getPasscode().equals(passcode)) {
             return handleError("Wrong password");
         }
         if (user.isConnected()) {
             return handleError("Already logged in");
         }
         user.connect();
+        currentUser = user;
         connections.send(connectionId, "CONNECTED\nversion:1.2\n\n\0");
         return "CONNECTED\nversion:1.2\n\n\0";
 
@@ -134,14 +137,25 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
     private String handleDisconnect(String[] lines) {
         String receiptId = getHeaderVal(lines, "receipt");
         connections.disconnect(connectionId);
+        currentUser.disconnect();
         shouldTerminate = true;
+        connections.send(connectionId, "RECEIPT\nreceipt-id:" + receiptId + "\n\n\0");
         return receiptId;
     }
 
     private String handleError(String errorMessage) {
+
         System.out.println("Handle Error");
         String response = "ERROR\nmessage: " + errorMessage + "\n\n\0";
-        connections.send(connectionId, "ERROR\nmessage:" + errorMessage + "\n\n\0");
+        System.out.println(response);
+        connections.send(connectionId, response);
+        try {
+            Thread.sleep(300); // 100 ms delay
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        connections.disconnect(connectionId);
+        currentUser.disconnect();
         shouldTerminate = true;
         return response;
     }

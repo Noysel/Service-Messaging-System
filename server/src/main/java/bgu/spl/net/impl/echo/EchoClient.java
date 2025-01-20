@@ -1,10 +1,10 @@
 package bgu.spl.net.impl.echo;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
+import bgu.spl.net.impl.echo.LineMessageEncoderDecoder;
+
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.Socket;
 import java.util.Scanner;
 
@@ -17,26 +17,56 @@ public class EchoClient {
         }
 
         if (args.length < 1) {
-            System.out.println("you must supply at least one argument: host");
+            System.out.println("You must supply at least one argument: host");
             System.exit(1);
         }
-        try (Socket sock = new Socket("localhost", 7777);
-        BufferedReader in = new BufferedReader(new InputStreamReader(sock.getInputStream()));
-        BufferedWriter out = new BufferedWriter(new OutputStreamWriter(sock.getOutputStream()));
-        Scanner sc = new Scanner(System.in)) { // Use a single Scanner instance
 
-       String nextMessage;
+        try (Socket sock = new Socket(args[0], 7777); // Connect to the server on port 7777
+             InputStream in = sock.getInputStream();
+             OutputStream out = sock.getOutputStream();
+             Scanner sc = new Scanner(System.in)) {
 
-       do {
-           System.out.println("Enter a message to send to the server (type 'bye' to quit):");
-           nextMessage = sc.nextLine(); // Read user input
-           out.write(nextMessage + "\u0000"); // Append the delimiter
-           out.flush(); // Send the message
+            LineMessageEncoderDecoder encdec = new LineMessageEncoderDecoder(); // Encoder-decoder instance
 
-           System.out.println("awaiting response");
-           String line = in.readLine(); // Read server response
-           System.out.println("message from server: " + line);
-       } while (!nextMessage.equals("bye") && !sock.isClosed()); // Continue until "bye" is entered
-   }
+            String nextMessage;
+
+            do {
+                if (sock.isClosed()) {
+                    System.out.println("Connection closed by the server.");
+                    break;
+                }
+
+                System.out.println("Enter a message to send to the server (use \\n for newlines, type 'bye' to quit):");
+                nextMessage = sc.nextLine(); // Read user input
+
+                // Replace literal '\n' with actual newlines
+                nextMessage = nextMessage.replace("\\n", "\n");
+
+                // Encode and send the message
+                out.write(encdec.encode(nextMessage));
+                out.flush();
+
+                System.out.println("Awaiting response...");
+
+                // Decode the server's response
+                StringBuilder serverMessage = new StringBuilder();
+                int read;
+                while ((read = in.read()) != -1) {
+                    String decoded = encdec.decodeNextByte((byte) read);
+                    if (decoded != null) {
+                        serverMessage.append(decoded);
+                        break; // Stop when a full message is received
+                    }
+                }
+
+                if (serverMessage.length() == 0) {
+                    System.out.println("Connection closed by the server.");
+                    break;
+                }
+
+                System.out.println("Message from server: ");
+                System.out.println(serverMessage.toString());
+            } while (!nextMessage.equals("bye") && !sock.isClosed()); // Exit loop when "bye" is entered
+        }
     }
 }

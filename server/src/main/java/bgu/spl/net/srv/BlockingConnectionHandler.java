@@ -24,7 +24,7 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
 
     @Override
     public void run() {
-        try (Socket sock = this.sock) { //just for automatic closing
+        try (Socket sock = this.sock) { // just for automatic closing
             int read;
 
             in = new BufferedInputStream(sock.getInputStream());
@@ -36,17 +36,26 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
                 T nextMessage = encdec.decodeNextByte((byte) read);
                 System.out.println("NextMessage: " + nextMessage);
                 if (nextMessage != null) {
-                    T response = protocol.process(nextMessage);
+                    protocol.process(nextMessage); // T response =
+                    /*  
                     System.out.println("Response: " + response);
                     if (response != null) {
+                        System.out.println("Sent by process: " + response);
                         out.write(encdec.encode(response));
                         out.flush();
                     }
+                        */
                 }
             }
 
         } catch (IOException ex) {
             ex.printStackTrace();
+        } finally {
+            try {
+                close(); // Explicitly close resources
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
 
     }
@@ -59,16 +68,23 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
 
     @Override
     public void send(T msg) {
+        if (!connected || sock.isClosed()) {
+            System.out.println("Attempted to send a message on a closed connection. Ignoring.");
+            return; // Avoid sending if the connection is already closed
+        }
+    
+        try {
+            synchronized (out) { // Ensure thread-safety on the output stream
+                out.write(encdec.encode(msg));
+                out.flush(); // Flush to guarantee the message is sent
+            }
+        } catch (IOException e) {
+            System.out.println("Error during send: " + e.getMessage());
             try {
-                    out.write(encdec.encode(msg));
-                    out.flush();
-            } catch (IOException e) {
-                e.printStackTrace();
-                try {
-                    close();
-                } catch (IOException closeException) {
-                    closeException.printStackTrace(); // Log the exception
-                }
+                close(); // Ensure the connection is properly closed
+            } catch (IOException closeException) {
+                closeException.printStackTrace();
             }
         }
+    }
 }
