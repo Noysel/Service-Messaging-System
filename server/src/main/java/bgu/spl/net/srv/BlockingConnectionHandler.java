@@ -30,12 +30,12 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
             in = new BufferedInputStream(sock.getInputStream());
             out = new BufferedOutputStream(sock.getOutputStream());
 
-            System.out.println("Connection Handler - before while");
+            //System.out.println("Connection Handler - before while");
             while (!protocol.shouldTerminate() && connected && (read = in.read()) >= 0) {
-                System.out.println("Connection Handler - inside while");
+                //System.out.println("Connection Handler - inside while");
                 T nextMessage = encdec.decodeNextByte((byte) read);
-                System.out.println("NextMessage: " + nextMessage);
                 if (nextMessage != null) {
+                    System.out.println("Recived message from client: " + nextMessage);
                     protocol.process(nextMessage); // T response =
                     /*  
                     System.out.println("Response: " + response);
@@ -63,6 +63,7 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
     @Override
     public void close() throws IOException {
         connected = false;
+        protocol.disconnect();
         sock.close();
     }
 
@@ -80,11 +81,12 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
             }
         } catch (IOException e) {
             System.out.println("Error during send: " + e.getMessage());
-            try {
+            /* try {
                 close(); // Ensure the connection is properly closed
             } catch (IOException closeException) {
                 closeException.printStackTrace();
             }
+                */
         }
     }
 }

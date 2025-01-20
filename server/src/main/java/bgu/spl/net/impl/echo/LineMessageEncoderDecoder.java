@@ -22,8 +22,8 @@ public class LineMessageEncoderDecoder implements MessageEncoderDecoder<String> 
 
     @Override
     public byte[] encode(String message) {
-        // Append '\0' to the message
-        return (message + "\0").getBytes(StandardCharsets.UTF_8);
+        // Append '\u0000' to the message
+        return (message + "\u0000").getBytes(StandardCharsets.UTF_8);
     }
 
     private void pushByte(byte nextByte) {

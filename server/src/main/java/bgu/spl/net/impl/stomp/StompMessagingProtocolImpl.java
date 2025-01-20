@@ -22,30 +22,38 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
     }
 
     @Override
-    public String process(String message) {
-        System.out.println(message);
+    public void process(String message) {
         String[] lines = message.split("\n");
         String msgType = lines[0];
 
-        switch (msgType) {
-            case "CONNECT":
-                return handleConnect(lines);
+        if (msgType.equals("CONNECT")) {
+            handleConnect(lines);
+                return;
+        }
+        else if (currentUser == null) {
+                handleError("Cannot preform the action because user is not connected");
+                return;
+            }
 
+        switch (msgType) {
             case "SEND":
-                return handleSend(lines);
+                handleSend(lines);
+                break;
 
             case "SUBSCRIBE":
-                return handleSubscribe(lines);
+                handleSubscribe(lines);
+                break;
 
             case "UNSUBSCRIBE":
-                return handleUnsubscribe(lines);
+                handleUnsubscribe(lines);
+                break;
 
             case "DISCONNECT":
-                return handleDisconnect(lines);
+                handleDisconnect(lines);
+                break;
 
             default:
-                return handleError("Unknown command: " + msgType);
-
+                handleError("Unknown command: " + msgType);
         }
     }
 
@@ -54,7 +62,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
         return shouldTerminate;
     }
 
-    private String handleConnect(String[] lines) {
+    private void handleConnect(String[] lines) {
         System.out.println("Handle Connect");
         String username = getHeaderVal(lines, "login");
         String passcode = getHeaderVal(lines, "passcode");
@@ -65,99 +73,95 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
             newUser.connect();
             currentUser = newUser;
             connections.send(connectionId, "CONNECTED\nversion:1.2\n\n\0");
-            return "CONNECTED\nversion:1.2\n\n\0";
+            return;
         }
         if (!user.getPasscode().equals(passcode)) {
-            return handleError("Wrong password");
+            handleError("Wrong password");
+            return;
         }
         if (user.isConnected()) {
-            return handleError("Already logged in");
+            handleError("Already logged in");
+            return;
         }
         user.connect();
         currentUser = user;
         connections.send(connectionId, "CONNECTED\nversion:1.2\n\n\0");
-        return "CONNECTED\nversion:1.2\n\n\0";
-
     }
 
-    private String handleSubscribe(String[] lines) {
+    private void handleSubscribe(String[] lines) {
         String destination = getHeaderVal(lines, "destination");
         String subscriptionId = getHeaderVal(lines, "id");
         String receiptId = getHeaderVal(lines, "receipt");
         if (destination == null || subscriptionId == null) {
-            return handleError("Missing 'destination' or 'id' header in SUBSCRIBE");
+            handleError("Missing 'destination' or 'id' header in SUBSCRIBE");
+            return;
         }
         if (subscribersChannelsMap.containsKey(subscriptionId)) {
 
-            return handleError("Subscription ID '" + subscriptionId + "' is already subscribed to '" + destination);
+            handleError("Subscription ID '" + subscriptionId + "' is already subscribed to '" + destination);
+            return;
         }
         subscribeToChannel(destination, subscriptionId);
+        System.out.println("subChannelMap in protocol" + subscribersChannelsMap.toString());
         if (receiptId != null) {
             connections.send(connectionId, "RECEIPT\nreceipt-id:" + receiptId + "\n\n\0");
-            return "RECEIPT\nreceipt-id:" + receiptId + "\n\n\0";
         }
-        return null;
     }
 
-    private String handleSend(String[] lines) {
+    private void handleSend(String[] lines) {
         String destination = getHeaderVal(lines, "destination");
+        System.out.println("destination in send: " + destination);
         String body = getMessageBody(lines);
         if (destination == null || body == null) {
-            return handleError("Missing 'destination' or body in SEND");
+            handleError("Missing 'destination' or body in SEND");
+            return;
         }
-        if (connections.isSubscribedToChannel(connectionId, destination)) {
-            return handleError("User is not subscribed to channel");
+        if (!connections.isSubscribedToChannel(connectionId, destination)) {
+            handleError("User is not subscribed to channel");
+            return;
         }
         String response = "MESSAGE\ndestination:" + destination + "\n\n" + body + "\0";
         connections.send(destination, response);
-        return response;
     }
 
-    private String handleUnsubscribe(String[] lines) {
+    private void handleUnsubscribe(String[] lines) {
         String subscriptionId = getHeaderVal(lines, "id");
         String receiptId = getHeaderVal(lines, "receipt");
 
         if (subscriptionId == null) {
             connections.send(connectionId, "ERROR\nmessage:Missing 'id' header in UNSUBSCRIBE\n\n\0");
-            return "ERROR\nmessage:Missing 'id' header in UNSUBSCRIBE\n\n\0";
+            return;
         }
         String destination = subscribersChannelsMap.get(subscriptionId);
         if (destination == null) {
-            return handleError("User is not subscribed to channel");
+            handleError("User is not subscribed to channel");
+            return;
         }
         unsubscribeToChannel(destination, subscriptionId);
         if (receiptId != null) {
             String receiptFrame = "RECEIPT\nreceipt-id:" + receiptId + "\n\n\0";
             connections.send(connectionId, receiptFrame);
-            return receiptFrame;
         }
-        return null;
     }
 
-    private String handleDisconnect(String[] lines) {
+    private void handleDisconnect(String[] lines) {
         String receiptId = getHeaderVal(lines, "receipt");
-        connections.disconnect(connectionId);
-        currentUser.disconnect();
-        shouldTerminate = true;
+        disconnect();
         connections.send(connectionId, "RECEIPT\nreceipt-id:" + receiptId + "\n\n\0");
-        return receiptId;
     }
 
-    private String handleError(String errorMessage) {
+    private void handleError(String errorMessage) {
 
         System.out.println("Handle Error");
         String response = "ERROR\nmessage: " + errorMessage + "\n\n\0";
-        System.out.println(response);
+        System.out.println("From handleError: " + response);
         connections.send(connectionId, response);
         try {
             Thread.sleep(300); // 100 ms delay
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-        connections.disconnect(connectionId);
-        currentUser.disconnect();
-        shouldTerminate = true;
-        return response;
+        disconnect();
     }
 
     // ***methods for handeling messages properly***
@@ -193,5 +197,13 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
             return lines[emptyLineIndex + 1].trim();
         }
         return null;
+    }
+
+    public void disconnect() {
+        connections.disconnect(connectionId);
+        if (currentUser != null) {
+            currentUser.disconnect();
+        }
+        shouldTerminate = true;
     }
 }

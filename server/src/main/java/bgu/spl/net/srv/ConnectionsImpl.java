@@ -35,7 +35,6 @@ public class ConnectionsImpl<T> implements Connections<T> {
         Set<Integer> subscribers = channelSubscribersMap.get(channel);
         if (subscribers != null) {
             for (Integer connectionId : subscribers) {
-                System.out.println("Connections send: " + msg);
                 send(connectionId, msg);
             }
         }
@@ -54,6 +53,8 @@ public class ConnectionsImpl<T> implements Connections<T> {
         channelSubscribersMap
                 .computeIfAbsent(channel, key -> ConcurrentHashMap.newKeySet())
                 .add(connectionId);
+        
+        System.out.println("ChannelSubscribeMap in Connections" + channelSubscribersMap.toString());
     }
 
     @Override
@@ -84,7 +85,9 @@ public class ConnectionsImpl<T> implements Connections<T> {
     @Override
     public boolean isSubscribedToChannel (int connectionId, String channel) {
         Set<Integer> subscribers = channelSubscribersMap.get(channel);
+        System.out.println("subscribers: " + subscribers.toString());
         if (subscribers == null || !subscribers.contains(connectionId)) {
+            System.out.println("FALSEEEEEEEEEEEEEEe");
             return false;
         }
         return true;

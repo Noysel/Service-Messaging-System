@@ -30,7 +30,8 @@ public class EchoClient {
 
             String nextMessage;
 
-            do {
+            while (true) {
+                // Check if the socket is closed
                 if (sock.isClosed()) {
                     System.out.println("Connection closed by the server.");
                     break;
@@ -51,22 +52,36 @@ public class EchoClient {
                 // Decode the server's response
                 StringBuilder serverMessage = new StringBuilder();
                 int read;
+                boolean messageReceived = false;
+
                 while ((read = in.read()) != -1) {
                     String decoded = encdec.decodeNextByte((byte) read);
                     if (decoded != null) {
                         serverMessage.append(decoded);
+                        messageReceived = true;
                         break; // Stop when a full message is received
                     }
                 }
 
-                if (serverMessage.length() == 0) {
+                // Exit if the server has closed the connection
+                if (!messageReceived) {
                     System.out.println("Connection closed by the server.");
                     break;
                 }
 
-                System.out.println("Message from server: ");
+                // Print the response from the server
+                System.out.println("Message from server:");
                 System.out.println(serverMessage.toString());
-            } while (!nextMessage.equals("bye") && !sock.isClosed()); // Exit loop when "bye" is entered
+
+                // Exit if "bye" is entered
+                if (nextMessage.equals("bye")) {
+                    System.out.println("Exiting client...");
+                    break;
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Error: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }
