@@ -4,6 +4,7 @@ import bgu.spl.net.api.StompMessagingProtocol;
 import bgu.spl.net.srv.Connections;
 import bgu.spl.net.srv.User;
 
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class StompMessagingProtocolImpl implements StompMessagingProtocol<String> {
@@ -67,6 +68,10 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
         String username = getHeaderVal(lines, "login");
         String passcode = getHeaderVal(lines, "passcode");
         User user = connections.getUser(username);
+        if (currentUser != null) {
+            handleError("Already logged in");
+            return;
+        }
         if (user == null) {
             User newUser = new User(connectionId, username, passcode);
             connections.addUser(newUser);
@@ -120,7 +125,15 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
             handleError("User is not subscribed to channel");
             return;
         }
-        String response = "MESSAGE\ndestination:" + destination + "\n\n" + body + "\0";
+        int messageId = connections.getAndIncrementMessageId();
+        String subscriptionId = "";
+        for (Map.Entry<String, String> entry : subscribersChannelsMap.entrySet()) {
+            if (entry.getValue().equals(destination)) {
+                subscriptionId = entry.getKey();
+                break;
+            }
+        }
+        String response = "MESSAGE\nsubscription:" + subscriptionId + "\nmessage-id:" + messageId + "\ndestination:" + destination + "\n\n" + body + "\0";
         connections.send(destination, response);
     }
 
@@ -162,6 +175,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
             Thread.currentThread().interrupt();
         }
         disconnect();
+        shouldTerminate = true;
     }
 
     // ***methods for handeling messages properly***
@@ -203,7 +217,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
         connections.disconnect(connectionId);
         if (currentUser != null) {
             currentUser.disconnect();
+            currentUser = null;
         }
-        shouldTerminate = true;
     }
 }

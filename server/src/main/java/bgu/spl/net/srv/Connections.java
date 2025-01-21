@@ -20,4 +20,6 @@ public interface Connections<T> {
     boolean isSubscribedToChannel(int connectionId, String channel);
 
     void addConnection(int connectionId, ConnectionHandler<T> handler);
+
+    public int getAndIncrementMessageId();
 }

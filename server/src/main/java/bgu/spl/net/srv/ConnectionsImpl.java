@@ -1,6 +1,7 @@
 package bgu.spl.net.srv;
 
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.Set;
 
 public class ConnectionsImpl<T> implements Connections<T> {
@@ -10,6 +11,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
     // connects between username and it's data 
     private ConcurrentHashMap<String, Set<Integer>> channelSubscribersMap;
     // connects between topic and connectionIds that subsribed to it
+    private AtomicInteger messageIDgenerator = new AtomicInteger(0);
  
     public ConnectionsImpl() {
         connectionsMap = new ConcurrentHashMap<>();
@@ -85,9 +87,9 @@ public class ConnectionsImpl<T> implements Connections<T> {
     @Override
     public boolean isSubscribedToChannel (int connectionId, String channel) {
         Set<Integer> subscribers = channelSubscribersMap.get(channel);
-        System.out.println("subscribers: " + subscribers.toString());
+       //System.out.println("subscribers: " + subscribers.toString());
         if (subscribers == null || !subscribers.contains(connectionId)) {
-            System.out.println("FALSEEEEEEEEEEEEEEe");
+            //System.out.println("FALSEEEEEEEEEEEEEEe");
             return false;
         }
         return true;
@@ -96,6 +98,10 @@ public class ConnectionsImpl<T> implements Connections<T> {
     public void addConnection(int connectionId, ConnectionHandler<T> handler) {
         connectionsMap.put(connectionId, handler);
         System.out.println("Connections added a new connection!");
+    }
+
+    public int getAndIncrementMessageId() {
+        return messageIDgenerator.getAndIncrement();
     }
 
 }
