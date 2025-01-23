@@ -9,7 +9,7 @@ int main (int argc, char *argv[]) {
         std::cerr << "Usage: " << argv[0] << " host port" << std::endl << std::endl;
         return -1;
     }
-    std::string host = argv[1];
+    std::string host = "172.10.77.195"; // argv[1]
     short port = atoi(argv[2]);
     
     ConnectionHandler connectionHandler(host, port);

@@ -125,7 +125,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
             handleError("User is not subscribed to channel");
             return;
         }
-        int messageId = connections.getAndIncrementMessageId();
+        //int messageId = connections.getAndIncrementMessageId();
         String subscriptionId = "";
         for (Map.Entry<String, String> entry : subscribersChannelsMap.entrySet()) {
             if (entry.getValue().equals(destination)) {
@@ -133,8 +133,8 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
                 break;
             }
         }
-        String response = "MESSAGE\nsubscription:" + subscriptionId + "\nmessage-id:" + messageId + "\ndestination:" + destination + "\n\n" + body + "\0";
-        connections.send(destination, response);
+        //String response = "MESSAGE\nsubscription:" + subscriptionId + "\nmessage-id:" + "\ndestination:" + destination + "\n\n" + body + "\0";
+        connections.send(destination, subscriptionId, body);
     }
 
     private void handleUnsubscribe(String[] lines) {

@@ -32,12 +32,14 @@ public class ConnectionsImpl<T> implements Connections<T> {
     }
 
     @Override
-    public void send(String channel, T msg) {
+    public void send(String channel, String subscriptionId, T msg) {
         System.out.println("Connection Map status: " + connectionsMap.toString());
         Set<Integer> subscribers = channelSubscribersMap.get(channel);
         if (subscribers != null) {
             for (Integer connectionId : subscribers) {
-                send(connectionId, msg);
+                int messageId = getAndIncrementMessageId();
+                String response = "MESSAGE\nsubscription:" + subscriptionId + "\nmessage-id:" + messageId + "\ndestination:" + channel + "\n\n" + msg + "\0";
+                send(connectionId, (T)response);
             }
         }
     }
