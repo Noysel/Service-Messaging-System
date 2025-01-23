@@ -9,8 +9,6 @@
 #include <sstream>
 #include <cstring>
 
-
-
 using namespace std;
 using json = nlohmann::json;
 
@@ -63,6 +61,14 @@ const std::string &Event::get_description() const
     return this->description;
 }
 
+void split_str(const std::string &str, char delimiter, std::vector<std::string> &output) {
+    std::stringstream ss(str);
+    std::string item;
+    while (std::getline(ss, item, delimiter)) {
+        output.push_back(item);
+    }
+}
+
 Event::Event(const std::string &frame_body): channel_name(""), city(""), 
                                              name(""), date_time(0), description(""), general_information(),
                                              eventOwnerUser("")
@@ -72,10 +78,10 @@ Event::Event(const std::string &frame_body): channel_name(""), city(""),
     string eventDescription;
     map<string, string> general_information_from_string;
     bool inGeneralInformation = false;
-    while(getline(ss,line,'\n')){
+    while(getline(ss, line, '\n')){
         vector<string> lineArgs;
         if(line.find(':') != string::npos) {
-            split_str(line, ':', lineArgs);
+            split_str(line, ':', lineArgs);  // Use the defined split_str function
             string key = lineArgs.at(0);
             string val;
             if(lineArgs.size() == 2) {
@@ -101,7 +107,7 @@ Event::Event(const std::string &frame_body): channel_name(""), city(""),
                 continue;
             }
             else if(key == "description") {
-                while(getline(ss,line,'\n')) {
+                while(getline(ss, line, '\n')) {
                     eventDescription += line + "\n";
                 }
                 description = eventDescription;
