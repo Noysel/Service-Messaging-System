@@ -23,7 +23,7 @@ private:
     std::string eventOwnerUser;
 
 public:
-    Event(std::string channel_name, std::string city, std::string name, int date_time, std::string description, std::map<std::string, std::string> general_information);
+    Event(std::string channel_name, std::string city, std::string name, int date_time, std::string description, std::map<std::string, std::string> general_information, std::string user);
     Event(const std::string & frame_body);
     virtual ~Event();
     void setEventOwnerUser(std::string setEventOwnerUser);

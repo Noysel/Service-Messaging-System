@@ -13,9 +13,10 @@ using namespace std;
 using json = nlohmann::json;
 
 Event::Event(std::string channel_name, std::string city, std::string name, int date_time,
-             std::string description, std::map<std::string, std::string> general_information)
+             std::string description, std::map<std::string, std::string> general_information, std::string user)
     : channel_name(channel_name), city(city), name(name),
-      date_time(date_time), description(description), general_information(general_information), eventOwnerUser("")
+      date_time(date_time), description(description),
+      general_information(general_information), eventOwnerUser(user)
 {
 }
 
@@ -61,6 +62,8 @@ const std::string &Event::get_description() const
     return this->description;
 }
 
+
+
 void split_str(const std::string &str, char delimiter, std::vector<std::string> &output) {
     std::stringstream ss(str);
     std::string item;
@@ -69,85 +72,112 @@ void split_str(const std::string &str, char delimiter, std::vector<std::string> 
     }
 }
 
-Event::Event(const std::string &frame_body): channel_name(""), city(""), 
-                                             name(""), date_time(0), description(""), general_information(),
-                                             eventOwnerUser("")
+Event::Event(const std::string &frame_body) : channel_name(""), city(""), 
+                                              name(""), date_time(0), description(""), general_information(),
+                                              eventOwnerUser("")
 {
-    stringstream ss(frame_body);
-    string line;
-    string eventDescription;
-    map<string, string> general_information_from_string;
+    std::stringstream ss(frame_body);
+    std::string line;
+    std::string eventDescription;
+    std::map<std::string, std::string> general_information_from_string;
     bool inGeneralInformation = false;
-    while(getline(ss, line, '\n')){
-        vector<string> lineArgs;
-        if(line.find(':') != string::npos) {
-            split_str(line, ':', lineArgs);  // Use the defined split_str function
-            string key = lineArgs.at(0);
-            string val;
-            if(lineArgs.size() == 2) {
-                val = lineArgs.at(1);
-            }
-            if(key == "user") {
+
+    while (std::getline(ss, line, '\n')) {
+        std::vector<std::string> lineArgs;
+        if (line.find(':') != std::string::npos) {
+            split_str(line, ':', lineArgs);
+            std::string key = lineArgs.at(0);
+            std::string val = lineArgs.size() > 1 ? lineArgs.at(1) : "";
+
+            if (key == "user") {
                 eventOwnerUser = val;
-            }
-            if(key == "channel name") {
+            } else if (key == "channel name") {
                 channel_name = val;
-            }
-            if(key == "city") {
+            } else if (key == "city") {
                 city = val;
-            }
-            else if(key == "event name") {
+            } else if (key == "event name") {
                 name = val;
-            }
-            else if(key == "date time") {
+            } else if (key == "date time") {
                 date_time = std::stoi(val);
-            }
-            else if(key == "general information") {
+            } else if (key == "general information") {
                 inGeneralInformation = true;
                 continue;
-            }
-            else if(key == "description") {
-                while(getline(ss, line, '\n')) {
+            } else if (key == "description") {
+                while (std::getline(ss, line, '\n')) {
                     eventDescription += line + "\n";
                 }
                 description = eventDescription;
             }
 
-            if(inGeneralInformation) {
+            if (inGeneralInformation) {
                 general_information_from_string[key.substr(1)] = val;
             }
         }
     }
+
     general_information = general_information_from_string;
 }
 
 names_and_events parseEventsFile(std::string json_path)
 {
     std::ifstream f(json_path);
-    json data = json::parse(f);
+    if (!f.is_open()) {
+        throw std::runtime_error("[ERROR] Could not open file: " + json_path);
+    }
+
+    std::string fileContents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+
+    if (fileContents.empty()) {
+        throw std::runtime_error("[ERROR] File is empty: " + json_path);
+    }
+
+    std::cout << "[DEBUG] File contents: " << fileContents << std::endl;
+
+    json data;
+    try {
+        data = json::parse(fileContents);
+    } catch (const json::parse_error &e) {
+        throw std::runtime_error("[ERROR] JSON parsing failed: " + std::string(e.what()));
+    }
+
+    if (!data.contains("channel_name") || !data["channel_name"].is_string()) {
+        throw std::runtime_error("[ERROR] Missing or invalid 'channel_name' in JSON file.");
+    }
+
+    if (!data.contains("events") || !data["events"].is_array()) {
+        throw std::runtime_error("[ERROR] Missing or invalid 'events' array in JSON file.");
+    }
 
     std::string channel_name = data["channel_name"];
-
-    // run over all the events and convert them to Event objects
     std::vector<Event> events;
-    for (auto &event : data["events"])
-    {
-        std::string name = event["event_name"];
-        std::string city = event["city"];
-        int date_time = event["date_time"];
-        std::string description = event["description"];
-        std::map<std::string, std::string> general_information;
-        for (auto &update : event["general_information"].items())
-        {
-            if (update.value().is_string())
-                general_information[update.key()] = update.value();
-            else
-                general_information[update.key()] = update.value().dump();
+
+    for (auto &event : data["events"]) {
+        if (!event.contains("event_name") || !event["event_name"].is_string() ||
+            !event.contains("city") || !event["city"].is_string() ||
+            !event.contains("date_time") || !event["date_time"].is_string() ||
+            !event.contains("description") || !event["description"].is_string()) {
+            throw std::runtime_error("[ERROR] Invalid event structure in JSON file.");
         }
 
-        events.push_back(Event(channel_name, city, name, date_time, description, general_information));
-    }
-    names_and_events events_and_names{channel_name, events};
+        std::string name = event["event_name"];
+        std::string city = event["city"];
+        std::string date_time = event["date_time"];
+        std::string description = event["description"];
 
+        std::string user = event.contains("user") ? event["user"] : "";
+
+        std::map<std::string, std::string> general_information;
+        for (auto &update : event["general_information"].items()) {
+            if (update.value().is_string()) {
+                general_information[update.key()] = update.value();
+            } else {
+                general_information[update.key()] = update.value().dump();
+            }
+        }
+
+        events.push_back(Event(channel_name, city, name, std::stoi(date_time), description, general_information, user));
+    }
+
+    names_and_events events_and_names{channel_name, events};
     return events_and_names;
 }

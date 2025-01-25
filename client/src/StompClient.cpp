@@ -17,38 +17,50 @@ bool shouldTerminate = false;
 std::unordered_map<std::string, std::map<std::string, std::vector<Event>>> receivedMessages;
 static int nextsubscriptionId = 1;
 std::unordered_map<std::string, int> channelSubscriptions;
+std::string currUserName;
 
 // Debugging helper function
-void debugPrint(const std::string &msg) {
+void debugPrint(const std::string &msg)
+{
     std::cout << "[DEBUG] " << msg << std::endl;
 }
 
 // Function to handle user input
-void handleUserInput(ConnectionHandler &connectionHandler) {
-    while (!shouldTerminate) {
+void handleUserInput(ConnectionHandler &connectionHandler)
+{
+    while (!shouldTerminate)
+    {
         std::string input;
         std::getline(std::cin, input);
         debugPrint("Received user input: " + input);
 
-        if (input.find("login") == 0) {
+        if (input.find("login") == 0)
+        {
             std::stringstream ss(input);
             std::string command, hostPort, username, password;
             ss >> command >> hostPort >> username >> password;
 
+            currUserName = username;
             std::string frame = "CONNECT\naccept-version:1.2\nhost:" + hostPort +
                                 "\nlogin:" + username + "\npasscode:" + password + "\u0000";
             debugPrint("Sending login frame:\n" + frame);
-            std::lock_guard<std::mutex> lock(connectionMutex);
-            if (!connectionHandler.sendLine(frame)) {
-                std::cerr << "Failed to send login frame." << std::endl;
-                break;
+            {
+                // std::lock_guard<std::mutex> lock(connectionMutex); // Guard critical section
+                if (!connectionHandler.sendLine(frame))
+                {
+                    std::cerr << "Failed to send login frame." << std::endl;
+                    break;
+                }
             }
-        } else if (input.find("join") == 0) {
+        }
+        else if (input.find("join") == 0)
+        {
             std::stringstream ss(input);
             std::string command, channel;
             ss >> command >> channel;
 
-            if (channelSubscriptions.find(channel) != channelSubscriptions.end()) {
+            if (channelSubscriptions.find(channel) != channelSubscriptions.end())
+            {
                 std::cerr << "Already subscribed to channel: " << channel << std::endl;
                 continue;
             }
@@ -59,18 +71,22 @@ void handleUserInput(ConnectionHandler &connectionHandler) {
                                 std::to_string(subscriptionId) + "\nreceipt:" +
                                 std::to_string(subscriptionId + 100) + "\n\n\u0000";
             debugPrint("Sending join frame:\n" + frame);
-            std::lock_guard<std::mutex> lock(connectionMutex);
-            if (!connectionHandler.sendLine(frame)) {
+            // std::lock_guard<std::mutex> lock(connectionMutex);
+            if (!connectionHandler.sendLine(frame))
+            {
                 std::cerr << "Failed to send join frame." << std::endl;
                 break;
             }
-        } else if (input.find("exit") == 0) {
+        }
+        else if (input.find("exit") == 0)
+        {
             std::stringstream ss(input);
             std::string command, channel;
             ss >> command >> channel;
 
             auto it = channelSubscriptions.find(channel);
-            if (it == channelSubscriptions.end()) {
+            if (it == channelSubscriptions.end())
+            {
                 std::cerr << "Channel not found: " << channel << std::endl;
                 continue;
             }
@@ -80,26 +96,31 @@ void handleUserInput(ConnectionHandler &connectionHandler) {
             std::string frame = "UNSUBSCRIBE\nid:" + std::to_string(subscriptionId) + "\nreceipt:" +
                                 std::to_string(subscriptionId + 200) + "\n\n\u0000";
             debugPrint("Sending exit frame:\n" + frame);
-            std::lock_guard<std::mutex> lock(connectionMutex);
-            if (!connectionHandler.sendLine(frame)) {
+            // std::lock_guard<std::mutex> lock(connectionMutex);
+            if (!connectionHandler.sendLine(frame))
+            {
                 std::cerr << "Failed to send exit frame." << std::endl;
                 break;
             }
-        } else if (input.find("report") == 0) {
+        }
+        else if (input.find("report") == 0)
+        {
             std::stringstream ss(input);
             std::string command, filePath;
             ss >> command >> filePath;
 
             debugPrint("Parsing events from file: " + filePath);
             names_and_events parsedEvents = parseEventsFile(filePath);
-            for (const Event &event : parsedEvents.events) {
+            for (const Event &event : parsedEvents.events)
+            {
                 std::string generalInfo;
-                for (const auto &info : event.get_general_information()) {
+                for (const auto &info : event.get_general_information())
+                {
                     generalInfo += "  " + info.first + ": " + info.second + "\n";
                 }
 
                 std::string frame = "SEND\ndestination:/" + parsedEvents.channel_name +
-                                    "\nuser:" + event.getEventOwnerUser() +
+                                    "\nuser:" + currUserName +
                                     "\ncity:" + event.get_city() +
                                     "\nevent name:" + event.get_name() +
                                     "\ndate time:" + std::to_string(event.get_date_time()) +
@@ -107,65 +128,109 @@ void handleUserInput(ConnectionHandler &connectionHandler) {
                                     "\ndescription:" + event.get_description() + "\n\n\u0000";
 
                 debugPrint("Sending report frame:\n" + frame);
-                std::lock_guard<std::mutex> lock(connectionMutex);
-                if (!connectionHandler.sendLine(frame)) {
+                // std::lock_guard<std::mutex> lock(connectionMutex);
+                if (!connectionHandler.sendLine(frame))
+                {
                     std::cerr << "Failed to send report frame." << std::endl;
                     break;
                 }
             }
-        } else if (input.find("summary") == 0) {
+        }
+        else if (input.find("summary") == 0)
+        {
             std::stringstream ss(input);
             std::string command, channel, user, filePath;
             ss >> command >> channel >> user >> filePath;
 
             debugPrint("Generating summary for channel: " + channel + ", user: " + user);
-            std::ofstream outFile(filePath);
-            if (!outFile.is_open()) {
-                std::cerr << "Failed to open file: " << filePath << std::endl;
+
+            // Try to open or create the file
+            std::ofstream outFile(filePath, std::ios::out | std::ios::trunc);
+            if (!outFile.is_open())
+            {
+                std::cerr << "[ERROR] Failed to open or create file: " << filePath << std::endl;
                 continue;
             }
 
-            std::lock_guard<std::mutex> lock(connectionMutex);
-            if (receivedMessages.find(channel) != receivedMessages.end() &&
-                receivedMessages[channel].find(user) != receivedMessages[channel].end()) {
-                const auto &events = receivedMessages[channel][user];
+            // Acquire lock for thread safety
+            // std::lock_guard<std::mutex> lock(connectionMutex);
+            std::string normalizedChannel = channel[0] == '/' ? channel.substr(1) : channel; // Normalize channel
+            if (receivedMessages.find(normalizedChannel) != receivedMessages.end() &&
+                receivedMessages[normalizedChannel].find(user) != receivedMessages[normalizedChannel].end())
+            {
+                const auto &events = receivedMessages[normalizedChannel][user];
 
-                outFile << "Channel: " << channel << "\nStats:\n";
-                outFile << "Total: " << events.size() << "\n";
-                outFile << "Event Reports:\n";
-                for (size_t i = 0; i < events.size(); ++i) {
-                    const Event &event = events[i];
-                    outFile << "Report_" << i + 1 << ":\n";
-                    outFile << "city: " << event.get_city() << "\n";
-                    outFile << "date time: " << event.get_date_time() << "\n";
-                    outFile << "event name: " << event.get_name() << "\n";
-                    outFile << "summary: " << event.get_description().substr(0, 27) << "...\n";
+                // Write to the file
+                std::ofstream outFile(filePath, std::ios::out | std::ios::trunc);
+                if (!outFile.is_open())
+                {
+                    std::cerr << "[ERROR] Failed to open or create file: " << filePath << std::endl;
+                    return;
                 }
+
+                outFile << "{\n";
+                outFile << "  \"channel\": \"" << normalizedChannel << "\",\n";
+                outFile << "  \"stats\": {\n";
+                outFile << "    \"total\": " << events.size() << "\n";
+                outFile << "  },\n";
+                outFile << "  \"event_reports\": [\n";
+
+                for (size_t i = 0; i < events.size(); ++i)
+                {
+                    const Event &event = events[i];
+                    outFile << "    {\n";
+                    outFile << "      \"report_id\": " << i + 1 << ",\n";
+                    outFile << "      \"city\": \"" << event.get_city() << "\",\n";
+                    outFile << "      \"date_time\": " << event.get_date_time() << ",\n";
+                    outFile << "      \"event_name\": \"" << event.get_name() << "\",\n";
+                    outFile << "      \"summary\": \"" << event.get_description().substr(0, 27) << "...\"\n";
+                    outFile << "    }";
+                    if (i < events.size() - 1)
+                        outFile << ",";
+                    outFile << "\n";
+                }
+
+                outFile << "  ]\n";
+                outFile << "}\n";
+
+                debugPrint("Summary written to file: " + filePath);
+                outFile.close();
             }
-            debugPrint("Summary written to file: " + filePath);
+            else
+            {
+                std::cerr << "[ERROR] No events found for channel: " << channel << ", user: " << user << std::endl;
+            }
+
             outFile.close();
-        } else if (input == "logout") {
+        }
+        else if (input == "logout")
+        {
             std::string frame = "DISCONNECT\nreceipt:999\n\n\u0000";
             debugPrint("Sending logout frame:\n" + frame);
-            std::lock_guard<std::mutex> lock(connectionMutex);
-            if (!connectionHandler.sendLine(frame)) {
+            // std::lock_guard<std::mutex> lock(connectionMutex);
+            if (!connectionHandler.sendLine(frame))
+            {
                 std::cerr << "Failed to send logout frame." << std::endl;
             }
-            shouldTerminate = true;
             break;
-        } else {
+        }
+        else
+        {
             std::cerr << "Unknown command." << std::endl;
         }
     }
 }
 
 // Function to handle server responses
-void handleServerResponses(ConnectionHandler &connectionHandler) {
-    while (!shouldTerminate) {
+void handleServerResponses(ConnectionHandler &connectionHandler)
+{
+    while (!shouldTerminate)
+    {
         std::string response;
         {
-            std::lock_guard<std::mutex> lock(connectionMutex);
-            if (!connectionHandler.getLine(response)) {
+            // std::lock_guard<std::mutex> lock(connectionMutex);
+            if (!connectionHandler.getLine(response))
+            {
                 std::cerr << "Disconnected from server." << std::endl;
                 shouldTerminate = true;
                 break;
@@ -174,30 +239,55 @@ void handleServerResponses(ConnectionHandler &connectionHandler) {
 
         debugPrint("Received response from server:\n" + response);
 
-        if (response.find("ERROR") == 0) {
+        if (response.find("ERROR") == 0)
+        {
             std::cerr << "Server Error: " << response << std::endl;
             shouldTerminate = true;
             connectionHandler.close();
             break;
-        } else if (response.find("RECEIPT") == 0) {
-            std::cout << "Logout successful." << std::endl;
-            connectionHandler.close();
-            break;
-        } else if (response.find("MESSAGE") == 0) {
-            Event event(response);
-            const std::string &channel = event.get_channel_name();
-            const std::string &user = event.getEventOwnerUser();
-
-            std::lock_guard<std::mutex> lock(connectionMutex);
-            receivedMessages[channel][user].push_back(event);
         }
+        else if (response.find("RECEIPT") == 0)
+        {
+            size_t receiptPos = response.find("receipt-id:");
+            if (receiptPos != std::string::npos)
+            {
+                std::string receiptId = response.substr(receiptPos + 11); // Length of "receipt-id:"
+                receiptId = receiptId.substr(0, receiptId.find("\n"));    // Extract only the receipt-id value
 
-        std::cout << "Server: " << response << std::endl;
+                if (receiptId == "999")
+                {
+                    // Receipt for DISCONNECT command
+                    std::cout << "Logout successful." << std::endl;
+                    shouldTerminate = true;
+                    connectionHandler.close();
+                    break;
+                }
+                else
+                {
+                    // Handle other RECEIPT cases if needed
+                    std::cout << "Received receipt-id: " << receiptId << std::endl;
+                }
+            }
+            else if (response.find("MESSAGE") == 0)
+            {
+                Event event(response);
+                const std::string &channel = event.get_channel_name();
+                const std::string &normalizedChannel = channel[0] == '/' ? channel.substr(1) : channel; // Normalize channel
+                const std::string &user = event.getEventOwnerUser();
+
+                // std::lock_guard<std::mutex> lock(connectionMutex);
+                receivedMessages[channel][user].push_back(event);
+            }
+
+            std::cout << "Server: " << response << std::endl;
+        }
     }
 }
 
-int main(int argc, char *argv[]) {
-    if (argc < 3) {
+int main(int argc, char *argv[])
+{
+    if (argc < 3)
+    {
         std::cerr << "Usage: " << argv[0] << " host port" << std::endl;
         return -1;
     }
@@ -206,7 +296,8 @@ int main(int argc, char *argv[]) {
     short port = std::stoi(argv[2]);
 
     ConnectionHandler connectionHandler(host, port);
-    if (!connectionHandler.connect()) {
+    if (!connectionHandler.connect())
+    {
         std::cerr << "Could not connect to server." << std::endl;
         return 1;
     }

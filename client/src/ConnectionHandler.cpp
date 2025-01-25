@@ -27,7 +27,7 @@ bool ConnectionHandler::connect() {
     catch (std::exception &e) {
         std::cerr << "Connection failed (Error: " << e.what() << ')' << std::endl;
         return false;
-    }
+     }
     return true;
 }
 
@@ -90,16 +90,20 @@ bool ConnectionHandler::getFrameAscii(std::string &frame, char delimiter) {
         std::cerr << "recv failed (Error: " << e.what() << ')' << std::endl;
         return false;
     }
+    std::cout << "[DEBUG] Received frame: " << frame << " with delimiter: " << delimiter << std::endl;
     return true;
 }
 
 bool ConnectionHandler::sendFrameAscii(const std::string &frame, char delimiter) {
     // Sending the frame with the specified delimiter
+    //std::cout << "[DEBUG] Preparing to send frame: " << frame << " with delimiter: " << delimiter << std::endl;
     bool result = sendBytes(frame.c_str(), frame.length());
     if (!result) return false;
 
     char delim[2];
     sprintf(delim, "%c", delimiter);
+    std::cout << "[DEBUG] Sending frame: " << frame << " with delimiter: " << delimiter << std::endl;
+    std::cout.flush();
     return sendBytes(delim, 1);
 }
 

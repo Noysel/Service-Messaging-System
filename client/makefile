@@ -1,26 +1,26 @@
-CFLAGS:=-c -Wall -Weffc++ -g -std=c++11 -Iinclude
-LDFLAGS:=-lboost_system -lpthread
+CFLAGS := -c -Wall -Weffc++ -g -std=c++11 -Iinclude
+LDFLAGS := -lboost_system -lpthread
 
-all: EchoClient StompWCIClient
+# Target to build all executables
+all: StompEMIClient
 
-EchoClient: bin/ConnectionHandler.o bin/echoClient.o
-	g++ -o bin/EchoClient bin/ConnectionHandler.o bin/echoClient.o $(LDFLAGS)
+# Build the StompEMIClient executable
+StompEMIClient: bin/ConnectionHandler.o bin/event.o bin/StompClient.o
+	g++ -o bin/StompEMIClient bin/ConnectionHandler.o bin/event.o bin/StompClient.o $(LDFLAGS)
 
-StompWCIClient: bin/ConnectionHandler.o bin/StompClient.o bin/event.o
-	g++ -o bin/StompWCIClient bin/ConnectionHandler.o bin/StompClient.o bin/event.o $(LDFLAGS)
-
+# Compile the ConnectionHandler object
 bin/ConnectionHandler.o: src/ConnectionHandler.cpp
 	g++ $(CFLAGS) -o bin/ConnectionHandler.o src/ConnectionHandler.cpp
 
-bin/echoClient.o: src/echoClient.cpp
-	g++ $(CFLAGS) -o bin/echoClient.o src/echoClient.cpp
-
+# Compile the Event object
 bin/event.o: src/event.cpp
 	g++ $(CFLAGS) -o bin/event.o src/event.cpp
 
+# Compile the StompClient object
 bin/StompClient.o: src/StompClient.cpp
 	g++ $(CFLAGS) -o bin/StompClient.o src/StompClient.cpp
 
+# Clean build artifacts
 .PHONY: clean
 clean:
 	rm -f bin/*
