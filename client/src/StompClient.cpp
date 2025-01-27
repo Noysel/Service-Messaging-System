@@ -8,6 +8,9 @@
 #include <vector>
 #include <map>
 #include <unordered_map>
+#include <string>
+#include <chrono>
+#include <iomanip>
 
 // Mutex for thread safety
 std::mutex connectionMutex;
@@ -23,6 +26,24 @@ std::string currUserName;
 void debugPrint(const std::string &msg)
 {
     std::cout << "[DEBUG] " << msg << std::endl;
+}
+
+std::string epoch_to_date(long long epoch_time)
+{
+    // Convert epoch time to a time_point
+    std::chrono::system_clock::time_point tp = std::chrono::system_clock::from_time_t(epoch_time);
+
+    // Convert to a time_t to work with localtime
+    std::time_t time_t_epoch = std::chrono::system_clock::to_time_t(tp);
+
+    // Convert to local time
+    std::tm local_time;
+    localtime_r(&time_t_epoch, &local_time);
+
+    // Format the time into a string
+    std::ostringstream oss;
+    oss << std::put_time(&local_time, "%d/%m/%y %H:%M");
+    return oss.str();
 }
 
 // Function to handle user input
@@ -160,16 +181,16 @@ void handleUserInput(ConnectionHandler &connectionHandler)
             {
                 const auto &events = receivedMessages[normalizedChannel][user];
 
-        // Count active events
-        int activeEventCount = 0;
-        for (const auto &event : events)
-        {
-            if (event.get_general_information().at("active") == "true")
-            {
-                ++activeEventCount;
-            }
-        }
-
+                // Count active events
+                int activeEventCount = 0;
+                for (const auto &event : events)
+                {
+                    auto activeIt = event.get_general_information().find("active");
+                    if (activeIt != event.get_general_information().end() && activeIt->second == "true")
+                    {
+                        ++activeEventCount;
+                    }
+                }
 
                 // Write to the file
                 std::ofstream outFile(filePath, std::ios::out | std::ios::trunc);
@@ -193,7 +214,7 @@ void handleUserInput(ConnectionHandler &connectionHandler)
                     outFile << "    {\n";
                     outFile << "      \"report_id\": " << i + 1 << ",\n";
                     outFile << "      \"city\": \"" << event.get_city() << "\",\n";
-                    outFile << "      \"date_time\": " << event.get_date_time() << ",\n";
+                    outFile << "      \"date_time\": " << epoch_to_date(event.get_date_time()) << ",\n";
                     outFile << "      \"event_name\": \"" << event.get_name() << "\",\n";
                     outFile << "      \"summary\": \"" << event.get_description().substr(0, 27) << "...\"\n";
                     outFile << "    }";
@@ -233,9 +254,11 @@ void handleUserInput(ConnectionHandler &connectionHandler)
     }
 }
 
-std::string trim(const std::string &str) {
+std::string trim(const std::string &str)
+{
     size_t first = str.find_first_not_of(" \t\r\n");
-    if (first == std::string::npos) return ""; // Empty string if only whitespace
+    if (first == std::string::npos)
+        return ""; // Empty string if only whitespace
     size_t last = str.find_last_not_of(" \t\r\n");
     return str.substr(first, (last - first + 1));
 }
@@ -257,10 +280,11 @@ void handleServerResponses(ConnectionHandler &connectionHandler)
         }
 
         // Trim and sanitize the response
-        //response = trim(response); // Ensure proper trimming of whitespace, newlines, and null characters
+        // response = trim(response); // Ensure proper trimming of whitespace, newlines, and null characters
         debugPrint("Received server's response: [" + response + "]");
 
-        if (response.empty()) {
+        if (response.empty())
+        {
             debugPrint("Ignored empty response from server.");
             continue;
         }
@@ -304,7 +328,7 @@ void handleServerResponses(ConnectionHandler &connectionHandler)
                 const std::string &channel = event.get_channel_name();
                 const std::string &normalizedChannel = channel[0] == '/' ? channel.substr(1) : channel; // Normalize channel
                 const std::string &user = event.getEventOwnerUser();
-                std::cerr <<"channel: " <<  channel <<  "NormalizedChannel:" << normalizedChannel;
+                std::cerr << "channel: " << channel << "NormalizedChannel:" << normalizedChannel;
 
                 // Update the received messages map
                 {
@@ -330,7 +354,6 @@ void handleServerResponses(ConnectionHandler &connectionHandler)
         }
     }
 }
-
 
 int main(int argc, char *argv[])
 {
