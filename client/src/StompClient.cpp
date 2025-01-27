@@ -146,7 +146,7 @@ void handleUserInput(ConnectionHandler &connectionHandler)
                                     "\nevent name:" + event.get_name() +
                                     "\ndate time:" + std::to_string(event.get_date_time()) +
                                     "\nGeneral Information:\n" + generalInfo +
-                                    "\ndescription:" + event.get_description() + "\n\n\u0000";
+                                    "\ndescription:" + event.get_description() + "\n\n";
 
                 debugPrint("Sending report frame:\n" + frame);
                 // std::lock_guard<std::mutex> lock(connectionMutex);
@@ -186,9 +186,13 @@ void handleUserInput(ConnectionHandler &connectionHandler)
                 for (const auto &event : events)
                 {
                     auto activeIt = event.get_general_information().find("active");
-                    if (activeIt != event.get_general_information().end() && activeIt->second == "true")
+                    if (activeIt != event.get_general_information().end())
                     {
-                        ++activeEventCount;
+                        // Check if the value is "true" or matches true if parsed as a boolean
+                        if (activeIt->second == "true")
+                        {
+                            ++activeEventCount;
+                        }
                     }
                 }
 
@@ -203,11 +207,10 @@ void handleUserInput(ConnectionHandler &connectionHandler)
                 outFile << "{\n";
                 outFile << "  \"channel\": \"" << normalizedChannel << "\",\n";
                 outFile << "  \"stats\": {\n";
-                outFile << "    \"total\": " << events.size() << "\n";
+                outFile << "    \"total\": " << events.size() << ",\n";
                 outFile << "    \"active\": " << activeEventCount << "\n";
                 outFile << "  },\n";
                 outFile << "  \"event_reports\": [\n";
-
                 for (size_t i = 0; i < events.size(); ++i)
                 {
                     const Event &event = events[i];

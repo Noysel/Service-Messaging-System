@@ -1,6 +1,6 @@
 #include "../include/event.h"
 #include "../include/json.hpp"
-//#include "../include/keyboardInput.h"
+// #include "../include/keyboardInput.h"
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -24,11 +24,13 @@ Event::~Event()
 {
 }
 
-void Event::setEventOwnerUser(std::string setEventOwnerUser) {
+void Event::setEventOwnerUser(std::string setEventOwnerUser)
+{
     eventOwnerUser = setEventOwnerUser;
 }
 
-const std::string &Event::getEventOwnerUser() const {
+const std::string &Event::getEventOwnerUser() const
+{
     return eventOwnerUser;
 }
 
@@ -62,17 +64,17 @@ const std::string &Event::get_description() const
     return this->description;
 }
 
-
-
-void split_str(const std::string &str, char delimiter, std::vector<std::string> &output) {
+void split_str(const std::string &str, char delimiter, std::vector<std::string> &output)
+{
     std::stringstream ss(str);
     std::string item;
-    while (std::getline(ss, item, delimiter)) {
+    while (std::getline(ss, item, delimiter))
+    {
         output.push_back(item);
     }
 }
 
-Event::Event(const std::string &frame_body) : channel_name(""), city(""), 
+Event::Event(const std::string &frame_body) : channel_name(""), city(""),
                                               name(""), date_time(0), description(""), general_information(),
                                               eventOwnerUser("")
 {
@@ -82,16 +84,20 @@ Event::Event(const std::string &frame_body) : channel_name(""), city(""),
     std::map<std::string, std::string> general_information_from_string;
     bool inGeneralInformation = false;
 
-    while (std::getline(ss, line, '\n')) {
-        if (line.empty()) {
+    while (std::getline(ss, line, '\n'))
+    {
+        if (line.empty())
+        {
             continue; // Skip empty lines
         }
 
-        if (line.find(':') != std::string::npos) {
+        if (line.find(':') != std::string::npos)
+        {
             std::vector<std::string> lineArgs;
             split_str(line, ':', lineArgs);
 
-            if (lineArgs.size() < 2) {
+            if (lineArgs.size() < 2)
+            {
                 std::cerr << "[DEBUG] Malformed line: " << line << std::endl;
                 continue; // Skip malformed lines
             }
@@ -100,33 +106,51 @@ Event::Event(const std::string &frame_body) : channel_name(""), city(""),
             std::string val = lineArgs[1];
 
             // Handle key-value pairs
-            if (key == "user") {
+            if (key == "user")
+            {
                 eventOwnerUser = val;
-            } else if (key == "destination") {
+            }
+            else if (key == "destination")
+            {
                 channel_name = val;
-            } else if (key == "city") {
+            }
+            else if (key == "city")
+            {
                 city = val;
-            } else if (key == "event name") {
+            }
+            else if (key == "event name")
+            {
                 name = val;
-            } else if (key == "date time") {
-                try {
+            }
+            else if (key == "date time")
+            {
+                try
+                {
                     date_time = std::stoi(val);
-                } catch (const std::invalid_argument &) {
+                }
+                catch (const std::invalid_argument &)
+                {
                     std::cerr << "[DEBUG] Invalid date_time value: " << val << std::endl;
                 }
-            } else if (key == "General Information") {
+            }
+            else if (key == "General Information")
+            {
                 inGeneralInformation = true;
                 continue;
-            } else if (key == "description") {
+            }
+            else if (key == "description")
+            {
                 // Accumulate the description from subsequent lines
                 eventDescription = val;
-                while (std::getline(ss, line, '\n') && !line.empty()) {
+                while (std::getline(ss, line, '\n') && !line.empty())
+                {
                     eventDescription += "\n" + line;
                 }
                 description = eventDescription;
             }
 
-            if (inGeneralInformation) {
+            if (inGeneralInformation)
+            {
                 general_information_from_string[key] = val;
             }
         }
@@ -135,69 +159,75 @@ Event::Event(const std::string &frame_body) : channel_name(""), city(""),
     general_information = general_information_from_string;
 }
 
+// Helper function to convert "DD/MM/YY HH:MM" to epoch time
+int parseDateTimeToEpoch(const std::string &date_time)
+{
+    std::tm tm = {};
+    std::istringstream ss(date_time);
+
+    // Parse the date and time string into a tm structure
+    ss >> std::get_time(&tm, "%d/%m/%y %H:%M");
+    if (ss.fail())
+    {
+        throw std::runtime_error("[ERROR] Failed to parse date_time: " + date_time);
+    }
+
+    // Convert tm to epoch time
+    return std::mktime(&tm);
+}
 
 names_and_events parseEventsFile(std::string json_path)
 {
     std::ifstream f(json_path);
-    if (!f.is_open()) {
-        throw std::runtime_error("[ERROR] Could not open file: " + json_path);
-    }
-
-    std::string fileContents((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-
-    if (fileContents.empty()) {
-        throw std::runtime_error("[ERROR] File is empty: " + json_path);
-    }
-
-    std::cout << "[DEBUG] File contents: " << fileContents << std::endl;
-
-    json data;
-    try {
-        data = json::parse(fileContents);
-    } catch (const json::parse_error &e) {
-        throw std::runtime_error("[ERROR] JSON parsing failed: " + std::string(e.what()));
-    }
-
-    if (!data.contains("channel_name") || !data["channel_name"].is_string()) {
-        throw std::runtime_error("[ERROR] Missing or invalid 'channel_name' in JSON file.");
-    }
-
-    if (!data.contains("events") || !data["events"].is_array()) {
-        throw std::runtime_error("[ERROR] Missing or invalid 'events' array in JSON file.");
-    }
+    json data = json::parse(f);
 
     std::string channel_name = data["channel_name"];
+
+    // Run over all the events and convert them to Event objects
     std::vector<Event> events;
-
-    for (auto &event : data["events"]) {
-        if (!event.contains("event_name") || !event["event_name"].is_string() ||
-            !event.contains("city") || !event["city"].is_string() ||
-            !event.contains("date_time") || !event["date_time"].is_string() ||
-            !event.contains("description") || !event["description"].is_string()) {
-            throw std::runtime_error("[ERROR] Invalid event structure in JSON file.");
-        }
-
+    for (auto &event : data["events"])
+    {
         std::string name = event["event_name"];
         std::string city = event["city"];
-        std::string date_time = event["date_time"];
+        std::string date_time_str = event["date_time"];
         std::string description = event["description"];
-
         std::string user = event.contains("user") ? event["user"] : "";
 
-        std::map<std::string, std::string> general_information;
-        for (auto &update : event["general_information"].items()) {
-            if (update.value().is_string()) {
-                general_information[update.key()] = update.value();
-            } else {
-                general_information[update.key()] = update.value().dump();
-            }
+        // Convert date_time string to epoch time
+        int date_time = 0;
+        try
+        {
+            date_time = parseDateTimeToEpoch(date_time_str);
+        }
+        catch (const std::exception &e)
+        {
+            std::cerr << e.what() << std::endl;
+            continue; // Skip this event if parsing fails
         }
 
-        events.push_back(Event(channel_name, city, name, std::stoi(date_time), description, general_information, user));
+        std::map<std::string, std::string> general_information;
+        for (auto &update : event["general_information"].items())
+        {
+            std::string value;
+            if (update.value().is_boolean())
+            {
+                // Normalize boolean to string
+                value = update.value().get<bool>() ? "true" : "false";
+            }
+            else if (update.value().is_string())
+            {
+                value = update.value();
+            }
+            else
+            {
+                value = update.value().dump(); // Handle other types
+            }
+            general_information[update.key()] = value;
+        }
+
+        events.push_back(Event(channel_name, city, name, date_time, description, general_information, user));
     }
 
     names_and_events events_and_names{channel_name, events};
     return events_and_names;
 }
-
-
