@@ -83,40 +83,58 @@ Event::Event(const std::string &frame_body) : channel_name(""), city(""),
     bool inGeneralInformation = false;
 
     while (std::getline(ss, line, '\n')) {
-        std::vector<std::string> lineArgs;
-        if (line.find(':') != std::string::npos) {
-            split_str(line, ':', lineArgs);
-            std::string key = lineArgs.at(0);
-            std::string val = lineArgs.size() > 1 ? lineArgs.at(1) : "";
+        if (line.empty()) {
+            continue; // Skip empty lines
+        }
 
+        if (line.find(':') != std::string::npos) {
+            std::vector<std::string> lineArgs;
+            split_str(line, ':', lineArgs);
+
+            if (lineArgs.size() < 2) {
+                std::cerr << "[DEBUG] Malformed line: " << line << std::endl;
+                continue; // Skip malformed lines
+            }
+
+            std::string key = lineArgs[0];
+            std::string val = lineArgs[1];
+
+            // Handle key-value pairs
             if (key == "user") {
                 eventOwnerUser = val;
-            } else if (key == "channel name") {
+            } else if (key == "channel_name") {
                 channel_name = val;
             } else if (key == "city") {
                 city = val;
-            } else if (key == "event name") {
+            } else if (key == "event_name") {
                 name = val;
-            } else if (key == "date time") {
-                date_time = std::stoi(val);
-            } else if (key == "general information") {
+            } else if (key == "date_time") {
+                try {
+                    date_time = std::stoi(val);
+                } catch (const std::invalid_argument &) {
+                    std::cerr << "[DEBUG] Invalid date_time value: " << val << std::endl;
+                }
+            } else if (key == "general_information") {
                 inGeneralInformation = true;
                 continue;
             } else if (key == "description") {
-                while (std::getline(ss, line, '\n')) {
-                    eventDescription += line + "\n";
+                // Accumulate the description from subsequent lines
+                eventDescription = val;
+                while (std::getline(ss, line, '\n') && !line.empty()) {
+                    eventDescription += "\n" + line;
                 }
                 description = eventDescription;
             }
 
             if (inGeneralInformation) {
-                general_information_from_string[key.substr(1)] = val;
+                general_information_from_string[key] = val;
             }
         }
     }
 
     general_information = general_information_from_string;
 }
+
 
 names_and_events parseEventsFile(std::string json_path)
 {

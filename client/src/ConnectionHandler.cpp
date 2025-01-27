@@ -54,7 +54,7 @@ bool ConnectionHandler::sendBytes(const char bytes[], int bytesToWrite) {
         while (!error && bytesToWrite > tmp) {
             int sent = socket_.write_some(boost::asio::buffer(bytes + tmp, bytesToWrite - tmp), error);
             tmp += sent;
-            std::cout << "[DEBUG] Sent " << sent << " bytes, total sent: " << tmp << "/" << bytesToWrite << std::endl;
+            //std::cout << "[DEBUG] Sent " << sent << " bytes, total sent: " << tmp << "/" << bytesToWrite << std::endl;
         }
         if (error)
             throw boost::system::system_error(error);
@@ -90,7 +90,7 @@ bool ConnectionHandler::getFrameAscii(std::string &frame, char delimiter) {
         std::cerr << "recv failed (Error: " << e.what() << ')' << std::endl;
         return false;
     }
-    std::cout << "[DEBUG] Received frame: " << frame << " with delimiter: " << delimiter << std::endl;
+    //std::cout << "[DEBUG] Received frame: " << frame << " with delimiter: " << delimiter << std::endl;
     return true;
 }
 
@@ -102,7 +102,7 @@ bool ConnectionHandler::sendFrameAscii(const std::string &frame, char delimiter)
 
     char delim[2];
     sprintf(delim, "%c", delimiter);
-    std::cout << "[DEBUG] Sending frame: " << frame << " with delimiter: " << delimiter << std::endl;
+    //std::cout << "[DEBUG] Sending frame: " << frame << " with delimiter: " << delimiter << std::endl;
     std::cout.flush();
     return sendBytes(delim, 1);
 }

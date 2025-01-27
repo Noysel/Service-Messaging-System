@@ -153,7 +153,7 @@ void handleUserInput(ConnectionHandler &connectionHandler)
             }
 
             // Acquire lock for thread safety
-            // std::lock_guard<std::mutex> lock(connectionMutex);
+            std::lock_guard<std::mutex> lock(connectionMutex);
             std::string normalizedChannel = channel[0] == '/' ? channel.substr(1) : channel; // Normalize channel
             if (receivedMessages.find(normalizedChannel) != receivedMessages.end() &&
                 receivedMessages[normalizedChannel].find(user) != receivedMessages[normalizedChannel].end())
@@ -205,7 +205,7 @@ void handleUserInput(ConnectionHandler &connectionHandler)
         }
         else if (input == "logout")
         {
-            std::string frame = "DISCONNECT\nreceipt:999\n\n\u0000";
+            std::string frame = "DISCONNECT\nreceipt:-1\n\n\u0000";
             debugPrint("Sending logout frame:\n" + frame);
             // std::lock_guard<std::mutex> lock(connectionMutex);
             if (!connectionHandler.sendLine(frame))
@@ -221,6 +221,13 @@ void handleUserInput(ConnectionHandler &connectionHandler)
     }
 }
 
+std::string trim(const std::string &str) {
+    size_t first = str.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos) return ""; // Empty string if only whitespace
+    size_t last = str.find_last_not_of(" \t\r\n");
+    return str.substr(first, (last - first + 1));
+}
+
 // Function to handle server responses
 void handleServerResponses(ConnectionHandler &connectionHandler)
 {
@@ -228,7 +235,7 @@ void handleServerResponses(ConnectionHandler &connectionHandler)
     {
         std::string response;
         {
-            // std::lock_guard<std::mutex> lock(connectionMutex);
+            // Attempt to read a line from the server
             if (!connectionHandler.getLine(response))
             {
                 std::cerr << "Disconnected from server." << std::endl;
@@ -237,8 +244,16 @@ void handleServerResponses(ConnectionHandler &connectionHandler)
             }
         }
 
-        debugPrint("Received response from server:\n" + response);
+        // Trim and sanitize the response
+        //response = trim(response); // Ensure proper trimming of whitespace, newlines, and null characters
+        debugPrint("Received server's response: [" + response + "]");
 
+        if (response.empty()) {
+            debugPrint("Ignored empty response from server.");
+            continue;
+        }
+
+        // Handle different frame types
         if (response.find("ERROR") == 0)
         {
             std::cerr << "Server Error: " << response << std::endl;
@@ -251,10 +266,10 @@ void handleServerResponses(ConnectionHandler &connectionHandler)
             size_t receiptPos = response.find("receipt-id:");
             if (receiptPos != std::string::npos)
             {
-                std::string receiptId = response.substr(receiptPos + 11); // Length of "receipt-id:"
-                receiptId = receiptId.substr(0, receiptId.find("\n"));    // Extract only the receipt-id value
+                std::string receiptId = response.substr(receiptPos + 11); // Extract receipt-id value
+                receiptId = receiptId.substr(0, receiptId.find("\n"));    // Trim further
 
-                if (receiptId == "999")
+                if (receiptId == "-1")
                 {
                     // Receipt for DISCONNECT command
                     std::cout << "Logout successful." << std::endl;
@@ -264,25 +279,46 @@ void handleServerResponses(ConnectionHandler &connectionHandler)
                 }
                 else
                 {
-                    // Handle other RECEIPT cases if needed
                     std::cout << "Received receipt-id: " << receiptId << std::endl;
                 }
             }
-            else if (response.find("MESSAGE") == 0)
+        }
+        else if (response.find("MESSAGE") == 0)
+        {
+            try
             {
+                // Parse the MESSAGE frame into an Event
                 Event event(response);
                 const std::string &channel = event.get_channel_name();
                 const std::string &normalizedChannel = channel[0] == '/' ? channel.substr(1) : channel; // Normalize channel
                 const std::string &user = event.getEventOwnerUser();
+                std::cerr <<"channel: " <<  channel <<  "NormalizedChannel:" << normalizedChannel;
 
-                // std::lock_guard<std::mutex> lock(connectionMutex);
-                receivedMessages[channel][user].push_back(event);
+                // Update the received messages map
+                {
+                    std::lock_guard<std::mutex> lock(connectionMutex);
+                    receivedMessages[normalizedChannel][user].push_back(event);
+                }
+
+                debugPrint("Updated receivedMessages:");
+                for (const auto &channelPair : receivedMessages)
+                {
+                    std::cerr << "[DEBUG] Channel: " << channelPair.first << std::endl;
+                    for (const auto &userPair : channelPair.second)
+                    {
+                        std::cerr << "[DEBUG]   User: " << userPair.first << ", Events Count: " << userPair.second.size() << std::endl;
+                    }
+                }
             }
-
-            std::cout << "Server: " << response << std::endl;
+            catch (const std::exception &e)
+            {
+                std::cerr << "Failed to parse MESSAGE frame: " << e.what() << std::endl;
+                debugPrint("Malformed MESSAGE frame: " + response);
+            }
         }
     }
 }
+
 
 int main(int argc, char *argv[])
 {
