@@ -185,14 +185,27 @@ void handleUserInput(ConnectionHandler &connectionHandler)
                 int activeEventCount = 0;
                 for (const auto &event : events)
                 {
-                    auto activeIt = event.get_general_information().find("active");
-                    if (activeIt != event.get_general_information().end())
+                    const auto &generalInfo = event.get_general_information();
+
+                    std::cerr << "[DEBUG] General Information for event '" << event.get_name() << "':\n";
+                    for (const auto &info : generalInfo)
                     {
-                        // Check if the value is "true" or matches true if parsed as a boolean
-                        if (activeIt->second == "true")
+                        std::cerr << "  Key: " << info.first << ", Value: " << info.second << std::endl;
+                    }
+
+                    // Check the 'active' key
+                    if (generalInfo.count("active") > 0)
+                    {
+                        std::string activeValue = generalInfo.at("active");
+                        if (activeValue == "true")
                         {
                             ++activeEventCount;
+                            std::cerr << "[DEBUG] Event '" << event.get_name() << "' is active.\n";
                         }
+                    }
+                    else
+                    {
+                        std::cerr << "[DEBUG] 'active' key not found for event: " << event.get_name() << std::endl;
                     }
                 }
 
@@ -214,12 +227,13 @@ void handleUserInput(ConnectionHandler &connectionHandler)
                 for (size_t i = 0; i < events.size(); ++i)
                 {
                     const Event &event = events[i];
+                    std::cerr << "[@$$@$@$@] " << event.get_general_information().at("description");
                     outFile << "    {\n";
                     outFile << "      \"report_id\": " << i + 1 << ",\n";
                     outFile << "      \"city\": \"" << event.get_city() << "\",\n";
                     outFile << "      \"date_time\": " << epoch_to_date(event.get_date_time()) << ",\n";
                     outFile << "      \"event_name\": \"" << event.get_name() << "\",\n";
-                    outFile << "      \"summary\": \"" << event.get_description().substr(0, 27) << "...\"\n";
+                    outFile << "      \"summary\": \"" << event.get_general_information().at("description").substr(0, 27) << "...\"\n";
                     outFile << "    }";
                     if (i < events.size() - 1)
                         outFile << ",";
@@ -257,11 +271,9 @@ void handleUserInput(ConnectionHandler &connectionHandler)
     }
 }
 
-std::string trim(const std::string &str)
-{
+static std::string trim(const std::string &str) {
     size_t first = str.find_first_not_of(" \t\r\n");
-    if (first == std::string::npos)
-        return ""; // Empty string if only whitespace
+    if (first == std::string::npos) return ""; // If no non-whitespace found, return empty string
     size_t last = str.find_last_not_of(" \t\r\n");
     return str.substr(first, (last - first + 1));
 }

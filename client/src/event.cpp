@@ -74,14 +74,21 @@ void split_str(const std::string &str, char delimiter, std::vector<std::string> 
     }
 }
 
+static std::string trim(const std::string &str)
+{
+    size_t first = str.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos)
+        return ""; // If no non-whitespace found, return empty string
+    size_t last = str.find_last_not_of(" \t\r\n");
+    return str.substr(first, (last - first + 1));
+}
+
 Event::Event(const std::string &frame_body) : channel_name(""), city(""),
                                               name(""), date_time(0), description(""), general_information(),
                                               eventOwnerUser("")
 {
     std::stringstream ss(frame_body);
     std::string line;
-    std::string eventDescription;
-    std::map<std::string, std::string> general_information_from_string;
     bool inGeneralInformation = false;
 
     while (std::getline(ss, line, '\n'))
@@ -91,21 +98,63 @@ Event::Event(const std::string &frame_body) : channel_name(""), city(""),
             continue; // Skip empty lines
         }
 
+        // Trim the line to avoid extra whitespace
+        line = trim(line);
+
+        // Check if we are inside the "General Information" block
+        if (inGeneralInformation)
+        {
+            if (line.find(':') != std::string::npos)
+            {
+                // Parse key-value pairs inside "General Information"
+                std::vector<std::string> lineArgs;
+                split_str(line, ':', lineArgs);
+
+                if (lineArgs.size() >= 2)
+                {
+                    std::string key = trim(lineArgs[0]);
+                    std::string val = trim(lineArgs[1]);
+
+                    // Add to general_information map
+                    general_information[key] = val;
+
+                    // Debug for each key-value parsed
+                    std::cerr << "[DEBUG] General Information: Key = " << key << ", Value = " << val << std::endl;
+                }
+            }
+            else
+            {
+                // If the line doesn't contain ":", assume we are exiting the block
+                inGeneralInformation = false;
+            }
+
+            continue; // Skip further processing of this line
+        }
+
+        // Handle the "General Information:" line specifically
+        if (line == "General Information:")
+        {
+            inGeneralInformation = true; // Start parsing the "General Information" block
+            continue;
+        }
+
+        // Parse standard key-value pairs
         if (line.find(':') != std::string::npos)
         {
             std::vector<std::string> lineArgs;
             split_str(line, ':', lineArgs);
 
+            // Ensure the line is valid
             if (lineArgs.size() < 2)
             {
+                // Log and skip malformed lines
                 std::cerr << "[DEBUG] Malformed line: " << line << std::endl;
-                continue; // Skip malformed lines
+                continue;
             }
 
-            std::string key = lineArgs[0];
-            std::string val = lineArgs[1];
+            std::string key = trim(lineArgs[0]);
+            std::string val = trim(lineArgs[1]);
 
-            // Handle key-value pairs
             if (key == "user")
             {
                 eventOwnerUser = val;
@@ -133,47 +182,28 @@ Event::Event(const std::string &frame_body) : channel_name(""), city(""),
                     std::cerr << "[DEBUG] Invalid date_time value: " << val << std::endl;
                 }
             }
-            else if (key == "General Information")
-            {
-                inGeneralInformation = true;
-                continue;
-            }
             else if (key == "description")
             {
-                // Accumulate the description from subsequent lines
-                eventDescription = val;
-                while (std::getline(ss, line, '\n') && !line.empty())
-                {
-                    eventDescription += "\n" + line;
-                }
-                description = eventDescription;
+                description = val; // Ensure description is stored separately
+                continue;          // Skip further processing for this line
             }
-
-            if (inGeneralInformation)
-            {
-                general_information_from_string[key] = val;
-            }
+        }
+        else
+        {
+            // Log and skip malformed lines
+            std::cerr << "[DEBUG] Skipping malformed line: " << line << std::endl;
         }
     }
 
-    general_information = general_information_from_string;
-}
-
-// Helper function to convert "DD/MM/YY HH:MM" to epoch time
-int parseDateTimeToEpoch(const std::string &date_time)
-{
-    std::tm tm = {};
-    std::istringstream ss(date_time);
-
-    // Parse the date and time string into a tm structure
-    ss >> std::get_time(&tm, "%d/%m/%y %H:%M");
-    if (ss.fail())
+    // Debug print for parsed general_information
+    std::cerr << "[DEBUG] Parsed general_information for event '" << name << "':\n";
+    for (const auto &pair : general_information)
     {
-        throw std::runtime_error("[ERROR] Failed to parse date_time: " + date_time);
+        std::cerr << "  Key: " << pair.first << ", Value: " << pair.second << std::endl;
     }
 
-    // Convert tm to epoch time
-    return std::mktime(&tm);
+    // Debug print for description
+    std::cerr << "[DEBUG] Parsed description for event '" << name << "': " << description << std::endl;
 }
 
 names_and_events parseEventsFile(std::string json_path)
@@ -189,21 +219,9 @@ names_and_events parseEventsFile(std::string json_path)
     {
         std::string name = event["event_name"];
         std::string city = event["city"];
-        std::string date_time_str = event["date_time"];
+        int date_time = event["date_time"];
         std::string description = event["description"];
         std::string user = event.contains("user") ? event["user"] : "";
-
-        // Convert date_time string to epoch time
-        int date_time = 0;
-        try
-        {
-            date_time = parseDateTimeToEpoch(date_time_str);
-        }
-        catch (const std::exception &e)
-        {
-            std::cerr << e.what() << std::endl;
-            continue; // Skip this event if parsing fails
-        }
 
         std::map<std::string, std::string> general_information;
         for (auto &update : event["general_information"].items())
@@ -211,7 +229,6 @@ names_and_events parseEventsFile(std::string json_path)
             std::string value;
             if (update.value().is_boolean())
             {
-                // Normalize boolean to string
                 value = update.value().get<bool>() ? "true" : "false";
             }
             else if (update.value().is_string())
@@ -220,9 +237,15 @@ names_and_events parseEventsFile(std::string json_path)
             }
             else
             {
-                value = update.value().dump(); // Handle other types
+                value = update.value().dump();
             }
             general_information[update.key()] = value;
+
+            if (update.key() == "active")
+            {
+                std::cerr << "[DEBUG] Parsed 'active': key = " << update.key()
+                          << ", value = " << value << std::endl;
+            }
         }
 
         events.push_back(Event(channel_name, city, name, date_time, description, general_information, user));
