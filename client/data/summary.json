@@ -1,0 +1,22 @@
+{
+  "channel": "police",
+  "stats": {
+    "total": 2
+  },
+  "event_reports": [
+    {
+      "report_id": 1,
+      "city": "Liberty City",
+      "date_time": 23,
+      "event_name": "Grand Theft Auto",
+      "summary": "Pink Lampadati Felon with l..."
+    },
+    {
+      "report_id": 2,
+      "city": "Los Alamos",
+      "date_time": 1,
+      "event_name": "Vandalism",
+      "summary": "Multiple cars were spray-pa..."
+    }
+  ]
+}

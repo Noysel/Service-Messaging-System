@@ -200,17 +200,20 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
     }
 
     private String getMessageBody(String[] lines) {
-        int emptyLineIndex = -1;
-        for (int i = 0; i < lines.length; i++) {
-            if (lines[i].isEmpty()) {
-                emptyLineIndex = i;
-                break;
+        StringBuilder bodyBuilder = new StringBuilder();
+        boolean startCollecting = false;
+    
+        for (String line : lines) {
+            if (line.startsWith("user:")) {
+                startCollecting = true; // Start collecting lines from "user:"
+            }
+    
+            if (startCollecting) {
+                bodyBuilder.append(line).append("\n"); // Append each line followed by a newline
             }
         }
-        if (emptyLineIndex != -1 && emptyLineIndex < lines.length - 1) {
-            return lines[emptyLineIndex + 1].trim();
-        }
-        return null;
+    
+        return bodyBuilder.toString().trim(); // Trim any trailing newlines or spaces
     }
 
     public void disconnect() {

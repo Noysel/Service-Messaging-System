@@ -160,6 +160,17 @@ void handleUserInput(ConnectionHandler &connectionHandler)
             {
                 const auto &events = receivedMessages[normalizedChannel][user];
 
+        // Count active events
+        int activeEventCount = 0;
+        for (const auto &event : events)
+        {
+            if (event.get_general_information().at("active") == "true")
+            {
+                ++activeEventCount;
+            }
+        }
+
+
                 // Write to the file
                 std::ofstream outFile(filePath, std::ios::out | std::ios::trunc);
                 if (!outFile.is_open())
@@ -172,6 +183,7 @@ void handleUserInput(ConnectionHandler &connectionHandler)
                 outFile << "  \"channel\": \"" << normalizedChannel << "\",\n";
                 outFile << "  \"stats\": {\n";
                 outFile << "    \"total\": " << events.size() << "\n";
+                outFile << "    \"active\": " << activeEventCount << "\n";
                 outFile << "  },\n";
                 outFile << "  \"event_reports\": [\n";
 

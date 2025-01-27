@@ -102,19 +102,19 @@ Event::Event(const std::string &frame_body) : channel_name(""), city(""),
             // Handle key-value pairs
             if (key == "user") {
                 eventOwnerUser = val;
-            } else if (key == "channel_name") {
+            } else if (key == "destination") {
                 channel_name = val;
             } else if (key == "city") {
                 city = val;
-            } else if (key == "event_name") {
+            } else if (key == "event name") {
                 name = val;
-            } else if (key == "date_time") {
+            } else if (key == "date time") {
                 try {
                     date_time = std::stoi(val);
                 } catch (const std::invalid_argument &) {
                     std::cerr << "[DEBUG] Invalid date_time value: " << val << std::endl;
                 }
-            } else if (key == "general_information") {
+            } else if (key == "General Information") {
                 inGeneralInformation = true;
                 continue;
             } else if (key == "description") {
