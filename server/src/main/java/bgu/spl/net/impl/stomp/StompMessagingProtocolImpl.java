@@ -24,6 +24,11 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
 
     @Override
     public void process(String message) {
+        if (message == null || message.trim().isEmpty()) {
+            System.out.println("[DEBUG] Ignored empty message");
+            return; // Ignore empty messages
+        }
+
         String[] lines = message.split("\n");
         String msgType = lines[0];
 
@@ -77,7 +82,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
             connections.addUser(newUser);
             newUser.connect();
             currentUser = newUser;
-            connections.send(connectionId, "CONNECTED\nversion:1.2\n\n\0");
+            connections.send(connectionId, "CONNECTED\nversion:1.2\n\n");
             return;
         }
         if (!user.getPasscode().equals(passcode)) {
@@ -90,7 +95,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
         }
         user.connect();
         currentUser = user;
-        connections.send(connectionId, "CONNECTED\nversion:1.2\n\n\0");
+        connections.send(connectionId, "CONNECTED\nversion:1.2\n\n");
     }
 
     private void handleSubscribe(String[] lines) {
@@ -109,7 +114,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
         subscribeToChannel(destination, subscriptionId);
         System.out.println("subChannelMap in protocol" + subscribersChannelsMap.toString());
         if (receiptId != null) {
-            connections.send(connectionId, "RECEIPT\nreceipt-id:" + receiptId + "\n\n\0");
+            connections.send(connectionId, "RECEIPT\nreceipt-id:" + receiptId + "\n\n");
         }
     }
 
@@ -142,7 +147,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
         String receiptId = getHeaderVal(lines, "receipt");
 
         if (subscriptionId == null) {
-            connections.send(connectionId, "ERROR\nmessage:Missing 'id' header in UNSUBSCRIBE\n\n\0");
+            connections.send(connectionId, "ERROR\nmessage:Missing 'id' header in UNSUBSCRIBE\n\n");
             return;
         }
         String destination = subscribersChannelsMap.get(subscriptionId);
@@ -152,21 +157,21 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
         }
         unsubscribeToChannel(destination, subscriptionId);
         if (receiptId != null) {
-            String receiptFrame = "RECEIPT\nreceipt-id:" + receiptId + "\n\n\0";
+            String receiptFrame = "RECEIPT\nreceipt-id:" + receiptId + "\n\n";
             connections.send(connectionId, receiptFrame);
         }
     }
 
     private void handleDisconnect(String[] lines) {
         String receiptId = getHeaderVal(lines, "receipt");
+        connections.send(connectionId, "RECEIPT\nreceipt-id:" + receiptId + "\n\n");
         disconnect();
-        connections.send(connectionId, "RECEIPT\nreceipt-id:" + receiptId + "\n\n\0");
     }
 
     private void handleError(String errorMessage) {
 
         System.out.println("Handle Error");
-        String response = "ERROR\nmessage: " + errorMessage + "\n\n\0";
+        String response = "ERROR\nmessage: " + errorMessage + "\n\n";
         System.out.println("From handleError: " + response);
         connections.send(connectionId, response);
         try {

@@ -117,9 +117,6 @@ Event::Event(const std::string &frame_body) : channel_name(""), city(""),
 
                     // Add to general_information map
                     general_information[key] = val;
-
-                    // Debug for each key-value parsed
-                    std::cerr << "[DEBUG] General Information: Key = " << key << ", Value = " << val << std::endl;
                 }
             }
             else
@@ -194,18 +191,7 @@ Event::Event(const std::string &frame_body) : channel_name(""), city(""),
             std::cerr << "[DEBUG] Skipping malformed line: " << line << std::endl;
         }
     }
-
-    // Debug print for parsed general_information
-    std::cerr << "[DEBUG] Parsed general_information for event '" << name << "':\n";
-    for (const auto &pair : general_information)
-    {
-        std::cerr << "  Key: " << pair.first << ", Value: " << pair.second << std::endl;
-    }
-
-    // Debug print for description
-    std::cerr << "[DEBUG] Parsed description for event '" << name << "': " << description << std::endl;
 }
-
 names_and_events parseEventsFile(std::string json_path)
 {
     std::ifstream f(json_path);
@@ -240,12 +226,6 @@ names_and_events parseEventsFile(std::string json_path)
                 value = update.value().dump();
             }
             general_information[update.key()] = value;
-
-            if (update.key() == "active")
-            {
-                std::cerr << "[DEBUG] Parsed 'active': key = " << update.key()
-                          << ", value = " << value << std::endl;
-            }
         }
 
         events.push_back(Event(channel_name, city, name, date_time, description, general_information, user));

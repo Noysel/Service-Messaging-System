@@ -46,6 +46,13 @@ std::string epoch_to_date(long long epoch_time)
     return oss.str();
 }
 
+// Helper function to compare two events
+bool compareEvents(const Event &a, const Event &b) {
+    if (a.get_date_time() != b.get_date_time())
+        return a.get_date_time() < b.get_date_time();
+    return a.get_name() < b.get_name(); // Lexicographical comparison of event names
+}
+
 // Function to handle user input
 void handleUserInput(ConnectionHandler &connectionHandler)
 {
@@ -179,19 +186,15 @@ void handleUserInput(ConnectionHandler &connectionHandler)
             if (receivedMessages.find(normalizedChannel) != receivedMessages.end() &&
                 receivedMessages[normalizedChannel].find(user) != receivedMessages[normalizedChannel].end())
             {
-                const auto &events = receivedMessages[normalizedChannel][user];
+                auto &events = receivedMessages[normalizedChannel][user];
+                // Sort events using the helper function
+                std::sort(events.begin(), events.end(), compareEvents);     
 
                 // Count active events
                 int activeEventCount = 0;
                 for (const auto &event : events)
                 {
                     const auto &generalInfo = event.get_general_information();
-
-                    std::cerr << "[DEBUG] General Information for event '" << event.get_name() << "':\n";
-                    for (const auto &info : generalInfo)
-                    {
-                        std::cerr << "  Key: " << info.first << ", Value: " << info.second << std::endl;
-                    }
 
                     // Check the 'active' key
                     if (generalInfo.count("active") > 0)
@@ -200,12 +203,7 @@ void handleUserInput(ConnectionHandler &connectionHandler)
                         if (activeValue == "true")
                         {
                             ++activeEventCount;
-                            std::cerr << "[DEBUG] Event '" << event.get_name() << "' is active.\n";
                         }
-                    }
-                    else
-                    {
-                        std::cerr << "[DEBUG] 'active' key not found for event: " << event.get_name() << std::endl;
                     }
                 }
 
@@ -227,7 +225,6 @@ void handleUserInput(ConnectionHandler &connectionHandler)
                 for (size_t i = 0; i < events.size(); ++i)
                 {
                     const Event &event = events[i];
-                    std::cerr << "[@$$@$@$@] " << event.get_general_information().at("description");
                     outFile << "    {\n";
                     outFile << "      \"report_id\": " << i + 1 << ",\n";
                     outFile << "      \"city\": \"" << event.get_city() << "\",\n";
@@ -298,11 +295,10 @@ void handleServerResponses(ConnectionHandler &connectionHandler)
         // response = trim(response); // Ensure proper trimming of whitespace, newlines, and null characters
         debugPrint("Received server's response: [" + response + "]");
 
-        if (response.empty())
-        {
-            debugPrint("Ignored empty response from server.");
+        if (trim(response).empty()) {
+            debugPrint("[DEBUG] Ignored whitespace-only response.");
             continue;
-        }
+}
 
         // Handle different frame types
         if (response.find("ERROR") == 0)
@@ -349,16 +345,6 @@ void handleServerResponses(ConnectionHandler &connectionHandler)
                 {
                     std::lock_guard<std::mutex> lock(connectionMutex);
                     receivedMessages[normalizedChannel][user].push_back(event);
-                }
-
-                debugPrint("Updated receivedMessages:");
-                for (const auto &channelPair : receivedMessages)
-                {
-                    std::cerr << "[DEBUG] Channel: " << channelPair.first << std::endl;
-                    for (const auto &userPair : channelPair.second)
-                    {
-                        std::cerr << "[DEBUG]   User: " << userPair.first << ", Events Count: " << userPair.second.size() << std::endl;
-                    }
                 }
             }
             catch (const std::exception &e)

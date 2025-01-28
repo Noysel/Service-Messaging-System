@@ -21,7 +21,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
     @Override
     public boolean send(int connectionId, T msg) {
-        System.out.println("Connection Map status: " + connectionsMap.toString());
+        //System.out.println("Connection Map status: " + connectionsMap.toString());
         ConnectionHandler<T> handler = connectionsMap.get(connectionId);
         if (handler != null) {
             System.out.println("Connections send: " + msg);
@@ -33,12 +33,12 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
     @Override
     public void send(String channel, String subscriptionId, T msg) {
-        System.out.println("Connection Map status: " + connectionsMap.toString());
+        //System.out.println("Connection Map status: " + connectionsMap.toString());
         Set<Integer> subscribers = channelSubscribersMap.get(channel);
         if (subscribers != null) {
             for (Integer connectionId : subscribers) {
                 int messageId = getAndIncrementMessageId();
-                String response = "MESSAGE\nsubscription:" + subscriptionId + "\nmessage-id:" + messageId + "\ndestination:" + channel + "\n\n" + msg + "\0";
+                String response = "MESSAGE\nsubscription:" + subscriptionId + "\nmessage-id:" + messageId + "\ndestination:" + channel + "\n\n" + msg;
                 send(connectionId, (T)response);
             }
         }
