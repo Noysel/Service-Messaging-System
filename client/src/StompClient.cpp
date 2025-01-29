@@ -47,7 +47,8 @@ std::string epoch_to_date(long long epoch_time)
 }
 
 // Helper function to compare two events
-bool compareEvents(const Event &a, const Event &b) {
+bool compareEvents(const Event &a, const Event &b)
+{
     if (a.get_date_time() != b.get_date_time())
         return a.get_date_time() < b.get_date_time();
     return a.get_name() < b.get_name(); // Lexicographical comparison of event names
@@ -122,7 +123,7 @@ void handleUserInput(ConnectionHandler &connectionHandler)
             channelSubscriptions.erase(it);
 
             std::string frame = "UNSUBSCRIBE\nid:" + std::to_string(subscriptionId) + "\nreceipt:" +
-                                std::to_string(subscriptionId + 200) + "\n\n\u0000";
+                                std::to_string(subscriptionId + 1000) + "\n\n\u0000";
             debugPrint("Sending exit frame:\n" + frame);
             // std::lock_guard<std::mutex> lock(connectionMutex);
             if (!connectionHandler.sendLine(frame))
@@ -188,7 +189,7 @@ void handleUserInput(ConnectionHandler &connectionHandler)
             {
                 auto &events = receivedMessages[normalizedChannel][user];
                 // Sort events using the helper function
-                std::sort(events.begin(), events.end(), compareEvents);     
+                std::sort(events.begin(), events.end(), compareEvents);
 
                 // Count active events
                 int activeEventCount = 0;
@@ -268,9 +269,11 @@ void handleUserInput(ConnectionHandler &connectionHandler)
     }
 }
 
-static std::string trim(const std::string &str) {
+static std::string trim(const std::string &str)
+{
     size_t first = str.find_first_not_of(" \t\r\n");
-    if (first == std::string::npos) return ""; // If no non-whitespace found, return empty string
+    if (first == std::string::npos)
+        return ""; // If no non-whitespace found, return empty string
     size_t last = str.find_last_not_of(" \t\r\n");
     return str.substr(first, (last - first + 1));
 }
@@ -295,10 +298,11 @@ void handleServerResponses(ConnectionHandler &connectionHandler)
         // response = trim(response); // Ensure proper trimming of whitespace, newlines, and null characters
         debugPrint("Received server's response: [" + response + "]");
 
-        if (trim(response).empty()) {
+        if (trim(response).empty())
+        {
             debugPrint("[DEBUG] Ignored whitespace-only response.");
             continue;
-}
+        }
 
         // Handle different frame types
         if (response.find("ERROR") == 0)
@@ -308,6 +312,10 @@ void handleServerResponses(ConnectionHandler &connectionHandler)
             connectionHandler.close();
             break;
         }
+        else if (response.find("CONNECTED") == 0)
+        {
+            std::cout << "Login successful" << std::endl;
+        }
         else if (response.find("RECEIPT") == 0)
         {
             size_t receiptPos = response.find("receipt-id:");
@@ -315,8 +323,9 @@ void handleServerResponses(ConnectionHandler &connectionHandler)
             {
                 std::string receiptId = response.substr(receiptPos + 11); // Extract receipt-id value
                 receiptId = receiptId.substr(0, receiptId.find("\n"));    // Trim further
+                int receiptIdInt = std::stoi(receiptId);
 
-                if (receiptId == "-1")
+                if (receiptIdInt == -1)
                 {
                     // Receipt for DISCONNECT command
                     std::cout << "Logout successful." << std::endl;
@@ -324,9 +333,52 @@ void handleServerResponses(ConnectionHandler &connectionHandler)
                     connectionHandler.close();
                     break;
                 }
-                else
+                else if (receiptIdInt >= 100 && receiptIdInt < 1000) {
+                    receiptIdInt = receiptIdInt - 100;
+                    std::string receiptIdString = std::to_string(receiptIdInt);
+
+                    std::string channelName;
+                    for (const auto &pair : channelSubscriptions)
+                    {
+                        if (std::to_string(pair.second) == receiptIdString)
+                        { // Compare values as strings
+                            channelName = pair.first;
+                            break; // Stop once we find the matching key
+                        }
+                    }
+
+                    if (!channelName.empty())
+                    {
+                        std::cout << "Joined channel " << channelName << std::endl;
+                    }
+                    else
+                    {
+                        std::cout << "Receipt ID not found in channelSubscriptions: " << receiptIdString << std::endl;
+                    }
+                }
+                else if (receiptIdInt >= 1000)
                 {
-                    std::cout << "Received receipt-id: " << receiptId << std::endl;
+                    receiptIdInt = receiptIdInt - 1000;
+                    std::string receiptIdString = std::to_string(receiptIdInt);
+
+                    std::string channelName;
+                    for (const auto &pair : channelSubscriptions)
+                    {
+                        if (std::to_string(pair.second) == receiptIdString)
+                        { // Compare values as strings
+                            channelName = pair.first;
+                            break; // Stop once we find the matching key
+                        }
+                    }
+
+                    if (!channelName.empty())
+                    {
+                        std::cout << "Exited channel " << channelName << std::endl;
+                    }
+                    else
+                    {
+                        std::cout << "Receipt ID not found in channelSubscriptions: " << receiptIdString << std::endl;
+                    }
                 }
             }
         }
